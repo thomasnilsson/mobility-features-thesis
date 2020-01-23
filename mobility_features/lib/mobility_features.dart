@@ -31,10 +31,9 @@ double haversineDist(List<double> point1, List<double> point2) {
 
 class Stop {
   Location location;
-  int arrival, departure;
-  Place place;
+  int arrival, departure, placeId;
 
-  Stop(this.location, this.arrival, this.departure, {this.place});
+  Stop(this.location, this.arrival, this.departure, {this.placeId});
 
   DateTime get arrivalDateTime => DateTime.fromMillisecondsSinceEpoch(arrival);
 
@@ -45,8 +44,8 @@ class Stop {
 
   @override
   String toString() {
-    String placeString = place != null ? place.toString() : '<NO PLACE>';
-    return 'Stop: ${location.toString()} [$arrivalDateTime - $departureDateTime] ($duration) ($placeString)';
+    String placeString = placeId != null ? placeId.toString() : '<NO PLACE_ID>';
+    return 'Stop: ${location.toString()} [$arrivalDateTime - $departureDateTime] ($duration) (PlaceId: $placeString)';
   }
 }
 
@@ -66,9 +65,9 @@ class Place {
 class Move {
   int departure, arrival;
   Location locationFrom, locationTo;
-  Place placeFrom, placeTo;
+  int placeFromId, placeToId;
 
-  Move(this.locationFrom, this.locationTo, this.placeFrom, this.placeTo,
+  Move(this.locationFrom, this.locationTo, this.placeFromId, this.placeToId,
       this.departure, this.arrival);
 
   /// The haversine distance between the two places
@@ -85,7 +84,7 @@ class Move {
 
   @override
   String toString() {
-    return 'Move: $locationFrom --> $locationTo, (Place ${placeFrom.id} --> ${placeTo.id}) ($duration)';
+    return 'Move: $locationFrom --> $locationTo, (Place ${placeFromId} --> ${placeToId}) ($duration)';
   }
 }
 
@@ -118,30 +117,39 @@ class Preprocessor {
   /// Find the stops in a sequence of gps data points
   List<Stop> findStops(List<LocationData> data) {
     List<Stop> stops = [];
-
     int i = 0;
     int j;
     int N = data.length;
+    List<LocationData> dataSubset;
+    Location centroid;
 
+    /// Go through all the data points
+    /// Each iteration looking at a subset of the data set
     while (i < N) {
       j = i + 1;
-      List<LocationData> g = data.sublist(i, j);
-      Location c = findCentroid(g.map((d) => (d.location)).toList());
+      dataSubset = data.sublist(i, j);
+      centroid = findCentroid(dataSubset.map((d) => (d.location)).toList());
 
-      while (j < N && isWithinMinDist(data[j].location, c)) {
+      /// Include a new data point until no longer within radius
+      /// to be considered at stop
+      /// or when all points have been taken
+      while (j < N && isWithinMinDist(data[j].location, centroid)) {
         j += 1;
-        g = data.sublist(i, j);
-        c = findCentroid(g.map((d) => (d.location)).toList());
+        dataSubset = data.sublist(i, j);
+        centroid = findCentroid(dataSubset.map((d) => (d.location)).toList());
       }
 
-      /// Check that the stop lasted for the minimum duration
-      Stop s = Stop(c, g.first.time, g.last.time);
-      if (s.duration >= minStopDuration) {
-        stops.add(Stop(c, g.first.time, g.last.time));
-      }
+      /// The centroid of the biggest subset is the location of the found stop
+      Stop s = Stop(centroid, dataSubset.first.time, dataSubset.last.time);
+      stops.add(s);
+
+      /// Update i, such that we no longer look at
+      /// the previously considered data points
       i = j;
     }
-    return stops;
+
+    /// Filter out stops which are shorter than the min. duration
+    return stops.where((s) => (s.duration >= minStopDuration)).toList();
   }
 
   /// Finds the places by clustering stops with the DBSCAN algorithm
@@ -186,8 +194,8 @@ class Preprocessor {
       Place p = Place(label, centroid, duration);
       places.add(p);
 
-      /// Set place field for the current stops
-      stopsForPlace.forEach((s) => s.place = p);
+      /// Set placeId field for the stops belonging to this place
+      stopsForPlace.forEach((s) => s.placeId = p.id);
     }
     return places;
   }
@@ -195,71 +203,57 @@ class Preprocessor {
   List<Move> findMoves(List<LocationData> data, List<Stop> stops) {
     List<Move> moves = [];
     int departure = data.map((d) => (d.time)).reduce(min);
-    Place prevPlace;
+    int arrival;
+
+    /// Non-existent starting stop
+    int prevPlaceId = -1;
 
     for (Stop stop in stops) {
-      List<LocationData> g = data
+      /// Check for moves between this and the next stop
+      List<LocationData> locationPoints = data
           .where((d) => (d.time >= departure && d.time <= stop.arrival))
           .toList();
-      if (g.isNotEmpty) {
-        Move m = Move(g.first.location, g.last.location, prevPlace, stop.place,
-            departure, stop.arrival);
 
-        /// If move lasted long enough, add it to the moves list
-        if (m.duration >= minMoveDuration) {
-          moves.add(m);
-        }
+      /// We have moves between stop[i] and stop[i+1]
+      if (locationPoints.isNotEmpty) {
+        arrival = stop.arrival;
+
+        moves.add(Move(
+            locationPoints.first.location,
+            locationPoints.last.location,
+            prevPlaceId,
+            stop.placeId,
+            departure,
+            stop.arrival));
 
         departure = stop.departure;
-        prevPlace = stop.place;
-      } else {
-        g = data.where((d) => (d.time >= departure)).toList();
-        if (g.isNotEmpty) {
-          int arrival = g.map((d) => (d.time)).reduce(max);
-          Move m = Move(g.first.location, g.last.location, prevPlace, stop.place,
-              departure, arrival);
+        prevPlaceId = stop.placeId;
+      }
 
-          /// If move lasted long enough, add it to the moves list
-          if (m.duration >= minMoveDuration) {
-            moves.add(m);
-          }
+      /// Otherwise, if there is a 'dead end' i.e.
+      /// no moves between stop[i] and stop[i+1]
+      else {
+        /// Check for moves after the current stop
+        locationPoints = data.where((d) => (d.time >= departure)).toList();
+
+        /// We have moves after stop[i]
+        if (locationPoints.isNotEmpty) {
+          arrival = locationPoints.map((d) => (d.time)).reduce(max);
+
+          /// Set -1 as the place_id for the move, since it
+          /// has a 'dead end' i.e. the stop would be considered noise by DBSCAN
+          moves.add(Move(
+              locationPoints.first.location,
+              locationPoints.last.location,
+              prevPlaceId,
+              -1,
+              departure,
+              arrival));
         }
       }
     }
 
-    return moves;
-
-//    '''
-//    moves = []
-//    if 'date'in stops.columns:
-//        stops = stops[stops.date==df.date.values[0]]
-//    departure = df.datetime.min()
-//    prev_place = np.nan
-//    for index, stop in stops.iterrows():
-//        g = df[(df.datetime >= departure) & (df.datetime <= stop.arrival)]
-//        if not g.empty:
-//            moves.append([g.lat.values[0], g.lon.values[0],
-//                          g.lat.values[-1], g.lon.values[-1],
-//                          departure, stop.arrival, prev_place, stop.place,
-//                          _move_length(g, distf)])
-//        departure = stop.departure
-//        prev_place = stop.place
-//    else:
-//        g = df[(df.datetime >= departure)]
-//        #g = g.sort_values('datetime')
-//        if not g.empty:
-//            moves.append([g.lat.values[0], g.lon.values[0],
-//                          g.lat.values[-1], g.lon.values[-1],
-//                          departure, g.datetime.max(), prev_place, np.nan,
-//                          _move_length(g, distf)])
-//    moves = pd.DataFrame(moves, columns=['from_lat', 'from_lon',
-//                         'to_lat', 'to_lon', 'departure', 'arrival',
-//                         'from_place', 'to_place', 'distance'])
-//    moves.insert(0, 'user_id', df.user_id.values[0])
-//    moves['duration'] = (moves.arrival - moves.departure).dt.total_seconds()/60
-//    moves['mean_speed'] = moves.distance / (moves.duration * 60)
-//    moves = moves[moves.duration >= min_duration].reset_index()
-//    return moves
-//    '''
+    /// Filter out moves that are too short according to the criterion
+    return moves.where((m) => (m.duration >= minMoveDuration)).toList();
   }
 }
