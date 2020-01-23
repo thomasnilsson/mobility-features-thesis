@@ -116,25 +116,22 @@ class Preprocessor {
 
     while (i < N) {
       j = i + 1;
-      List<LocationData> subset = data.sublist(i, j);
-      List<Location> subsetLocations = subset.map((d) => (d.location)).toList();
-      Location centroid = findCentroid(subsetLocations);
+      List<LocationData> g = data.sublist(i, j);
+      Location c = findCentroid(g.map((d) => (d.location)).toList());
 
-      while (j < N && isWithinMinDist(data[j].location, centroid)) {
-        j++;
-        subset = data.sublist(i, j);
-        subsetLocations = subset.map((d) => (d.location)).toList();
-        centroid = findCentroid(subsetLocations);
+      while (j < N && isWithinMinDist(data[j].location, c)) {
+        j += 1;
+        g = data.sublist(i, j);
+        c = findCentroid(g.map((d) => (d.location)).toList());
       }
 
       /// Check that the stop lasted for the minimum duration
-      Stop s = Stop(centroid, subset.first.time, subset.last.time);
+      Stop s = Stop(c, g.first.time, g.last.time);
       if (s.duration >= minStopDuration) {
-        stops.add(Stop(centroid, subset.first.time, subset.last.time));
+        stops.add(Stop(c, g.first.time, g.last.time));
       }
       i = j;
     }
-
     return stops;
   }
 
@@ -164,7 +161,7 @@ class Preprocessor {
 
       /// For each index, get the corresponding stop
       List<Stop> stopsForPlace = indices.map((i) => (stops[i])).toList();
-      
+
       /// Given all stops belonging to a place,
       /// calculate the centroid of the place
       List<Location> stopsLocations = stopsForPlace.map((x) => (x.location)).toList();
@@ -178,6 +175,10 @@ class Preprocessor {
       /// Add place to the list
       places.add(Place(label, centroid, duration));
     }
+
+//    for (int i = 0; i < stops.length; i++) {
+//      print('${stops[i]}: ${dbscan.label[i]}');
+//    }
 
     return places;
   }

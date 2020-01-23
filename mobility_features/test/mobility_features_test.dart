@@ -17,5 +17,6 @@ void main() {
     List<Place> places = p.findPlaces(stops);
     printList(places);
 
+    print(p.findCentroid(stops.map((x) => (x.location)).toList()));
   });
 }
