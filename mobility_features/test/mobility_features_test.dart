@@ -9,14 +9,18 @@ void main() {
     List<LocationData> data = Dataset().data;
     final p = Preprocessor();
 
-    /// Find stops
+    /// Find stops, stops will have an empty [place] field
     List<Stop> stops = p.findStops(data);
     printList(stops);
 
-    /// Find places
+    /// Find places, now stops should have their [place] field set
     List<Place> places = p.findPlaces(stops);
+    printList(stops);
     printList(places);
 
-    print(p.findCentroid(stops.map((x) => (x.location)).toList()));
+    /// Find moves
+    List<Move> moves = p.findMoves(data, stops);
+    printList(moves);
+
   });
 }

@@ -7,6 +7,7 @@ import 'package:stats/stats.dart';
 
 void printList(List l) {
   for (var x in l) print(x);
+  print('-' * 50);
 }
 
 /// Convert from degrees to radians
@@ -31,8 +32,9 @@ double haversineDist(List<double> point1, List<double> point2) {
 class Stop {
   Location location;
   int arrival, departure;
+  Place place;
 
-  Stop(this.location, this.arrival, this.departure);
+  Stop(this.location, this.arrival, this.departure, {this.place});
 
   DateTime get arrivalDateTime => DateTime.fromMillisecondsSinceEpoch(arrival);
 
@@ -43,7 +45,8 @@ class Stop {
 
   @override
   String toString() {
-    return 'Stop: ${location.toString()} [$arrivalDateTime - $departureDateTime] ($duration)';
+    String placeString = place != null ? place.toString() : '<NO PLACE>';
+    return 'Stop: ${location.toString()} [$arrivalDateTime - $departureDateTime] ($duration) ($placeString)';
   }
 }
 
@@ -62,25 +65,31 @@ class Place {
 
 class Move {
   int departure, arrival;
+  Location locationFrom, locationTo;
   Place placeFrom, placeTo;
 
-  Move(this.placeFrom, this.placeTo, this.departure, this.arrival);
+  Move(this.locationFrom, this.locationTo, this.placeFrom, this.placeTo,
+      this.departure, this.arrival);
 
   /// The haversine distance between the two places
   double get distance {
-    return haversineDist(
-        [placeFrom.location.latitude, placeFrom.location.longitude],
-        [placeTo.location.latitude, placeTo.location.longitude]);
+    return haversineDist([locationFrom.latitude, locationFrom.longitude],
+        [locationTo.latitude, locationTo.longitude]);
   }
 
   /// The duration of the move in milliseconds
-  int get duration => arrival - departure;
+  Duration get duration => Duration(milliseconds: arrival - departure);
 
   /// The average speed when moving between the two places
-  double get meanSpeed => distance / duration.toDouble();
+  double get meanSpeed => distance / duration.inSeconds.toDouble();
+
+  @override
+  String toString() {
+    return 'Move: $locationFrom --> $locationTo, (Place ${placeFrom.id} --> ${placeTo.id}) ($duration)';
+  }
 }
 
-/// Preprocessing for the Feature Extraction
+/// Preprocessing for the Feature Extraction.
 /// Finds Stops, Places and Moves for a day of GPS data
 class Preprocessor {
   double minStopDist = 50, minPlaceDist = 50;
@@ -137,15 +146,15 @@ class Preprocessor {
 
   /// Finds the places by clustering stops with the DBSCAN algorithm
   List<Place> findPlaces(List<Stop> stops) {
-
     List<Place> places = [];
 
     DBSCAN dbscan = DBSCAN(
         epsilon: minPlaceDist, minPoints: 1, distanceMeasure: haversineDist);
 
     /// Extract gps coordinates from stops
-    List<List<double>> gpsCoords =
-        stops.map((s) => ([s.location.latitude, s.location.longitude])).toList();
+    List<List<double>> gpsCoords = stops
+        .map((s) => ([s.location.latitude, s.location.longitude]))
+        .toList();
 
     /// Run DBSCAN on data points
     dbscan.run(gpsCoords);
@@ -164,7 +173,8 @@ class Preprocessor {
 
       /// Given all stops belonging to a place,
       /// calculate the centroid of the place
-      List<Location> stopsLocations = stopsForPlace.map((x) => (x.location)).toList();
+      List<Location> stopsLocations =
+          stopsForPlace.map((x) => (x.location)).toList();
       Location centroid = findCentroid(stopsLocations);
 
       /// Calculate the sum of the durations spent at the stops,
@@ -173,13 +183,83 @@ class Preprocessor {
           stopsForPlace.map((s) => (s.duration)).reduce((a, b) => a + b);
 
       /// Add place to the list
-      places.add(Place(label, centroid, duration));
+      Place p = Place(label, centroid, duration);
+      places.add(p);
+
+      /// Set place field for the current stops
+      stopsForPlace.forEach((s) => s.place = p);
+    }
+    return places;
+  }
+
+  List<Move> findMoves(List<LocationData> data, List<Stop> stops) {
+    List<Move> moves = [];
+    int departure = data.map((d) => (d.time)).reduce(min);
+    Place prevPlace;
+
+    for (Stop stop in stops) {
+      List<LocationData> g = data
+          .where((d) => (d.time >= departure && d.time <= stop.arrival))
+          .toList();
+      if (g.isNotEmpty) {
+        Move m = Move(g.first.location, g.last.location, prevPlace, stop.place,
+            departure, stop.arrival);
+
+        /// If move lasted long enough, add it to the moves list
+        if (m.duration >= minMoveDuration) {
+          moves.add(m);
+        }
+
+        departure = stop.departure;
+        prevPlace = stop.place;
+      } else {
+        g = data.where((d) => (d.time >= departure)).toList();
+        if (g.isNotEmpty) {
+          int arrival = g.map((d) => (d.time)).reduce(max);
+          Move m = Move(g.first.location, g.last.location, prevPlace, stop.place,
+              departure, arrival);
+
+          /// If move lasted long enough, add it to the moves list
+          if (m.duration >= minMoveDuration) {
+            moves.add(m);
+          }
+        }
+      }
     }
 
-//    for (int i = 0; i < stops.length; i++) {
-//      print('${stops[i]}: ${dbscan.label[i]}');
-//    }
+    return moves;
 
-    return places;
+//    '''
+//    moves = []
+//    if 'date'in stops.columns:
+//        stops = stops[stops.date==df.date.values[0]]
+//    departure = df.datetime.min()
+//    prev_place = np.nan
+//    for index, stop in stops.iterrows():
+//        g = df[(df.datetime >= departure) & (df.datetime <= stop.arrival)]
+//        if not g.empty:
+//            moves.append([g.lat.values[0], g.lon.values[0],
+//                          g.lat.values[-1], g.lon.values[-1],
+//                          departure, stop.arrival, prev_place, stop.place,
+//                          _move_length(g, distf)])
+//        departure = stop.departure
+//        prev_place = stop.place
+//    else:
+//        g = df[(df.datetime >= departure)]
+//        #g = g.sort_values('datetime')
+//        if not g.empty:
+//            moves.append([g.lat.values[0], g.lon.values[0],
+//                          g.lat.values[-1], g.lon.values[-1],
+//                          departure, g.datetime.max(), prev_place, np.nan,
+//                          _move_length(g, distf)])
+//    moves = pd.DataFrame(moves, columns=['from_lat', 'from_lon',
+//                         'to_lat', 'to_lon', 'departure', 'arrival',
+//                         'from_place', 'to_place', 'distance'])
+//    moves.insert(0, 'user_id', df.user_id.values[0])
+//    moves['duration'] = (moves.arrival - moves.departure).dt.total_seconds()/60
+//    moves['mean_speed'] = moves.distance / (moves.duration * 60)
+//    moves = moves[moves.duration >= min_duration].reset_index()
+//    return moves
+//    '''
   }
 }
