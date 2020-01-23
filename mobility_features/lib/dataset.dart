@@ -28,7 +28,6 @@ class Location {
 
   @override
   String toString() {
-    // TODO: implement toString
     return 'Location: ($latitude, $longitude)';
   }
 }

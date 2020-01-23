@@ -5,6 +5,10 @@ import 'dart:math';
 import 'dataset.dart';
 import 'package:stats/stats.dart';
 
+void printList(List l) {
+  for (var x in l) print(x);
+}
+
 /// Convert from degrees to radians
 double radiansFromDegrees(final double degrees) => degrees * (pi / 180.0);
 
@@ -49,6 +53,11 @@ class Place {
   Duration duration;
 
   Place(this.id, this.location, this.duration);
+
+  @override
+  String toString() {
+    return 'Place {$id}:  ${location.toString()} ($duration)';
+  }
 }
 
 class Move {
@@ -107,19 +116,21 @@ class Preprocessor {
 
     while (i < N) {
       j = i + 1;
-      List<LocationData> pointCloud = data.sublist(i, j);
-      Location centroid = findCentroid(pointCloud.map((d) => (d.location)));
+      List<LocationData> subset = data.sublist(i, j);
+      List<Location> subsetLocations = subset.map((d) => (d.location)).toList();
+      Location centroid = findCentroid(subsetLocations);
 
       while (j < N && isWithinMinDist(data[j].location, centroid)) {
         j++;
-        pointCloud = data.sublist(i, j);
-        centroid = findCentroid(pointCloud.map((d) => (d.location)));
+        subset = data.sublist(i, j);
+        subsetLocations = subset.map((d) => (d.location)).toList();
+        centroid = findCentroid(subsetLocations);
       }
 
       /// Check that the stop lasted for the minimum duration
-      Stop s = Stop(centroid, pointCloud.first.time, pointCloud.last.time);
+      Stop s = Stop(centroid, subset.first.time, subset.last.time);
       if (s.duration >= minStopDuration) {
-        stops.add(Stop(centroid, pointCloud.first.time, pointCloud.last.time));
+        stops.add(Stop(centroid, subset.first.time, subset.last.time));
       }
       i = j;
     }
@@ -137,7 +148,7 @@ class Preprocessor {
 
     /// Extract gps coordinates from stops
     List<List<double>> gpsCoords =
-        stops.map((s) => ([s.location.latitude, s.location.longitude]));
+        stops.map((s) => ([s.location.latitude, s.location.longitude])).toList();
 
     /// Run DBSCAN on data points
     dbscan.run(gpsCoords);
@@ -149,14 +160,15 @@ class Preprocessor {
     for (int label in clusterLabels) {
       /// Get indices of all stops with the current cluster label
       List<int> indices =
-          stops.asMap().keys.where((i) => (dbscan.label[i] == label));
+          stops.asMap().keys.where((i) => (dbscan.label[i] == label)).toList();
 
       /// For each index, get the corresponding stop
-      List<Stop> stopsForPlace = indices.map((i) => (stops[i]));
-
+      List<Stop> stopsForPlace = indices.map((i) => (stops[i])).toList();
+      
       /// Given all stops belonging to a place,
       /// calculate the centroid of the place
-      Location centroid = findCentroid(stopsForPlace.map((x) => (x.location)));
+      List<Location> stopsLocations = stopsForPlace.map((x) => (x.location)).toList();
+      Location centroid = findCentroid(stopsLocations);
 
       /// Calculate the sum of the durations spent at the stops,
       /// belonging to the place
