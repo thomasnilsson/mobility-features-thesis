@@ -31,20 +31,22 @@ class Stop {
   Stop(this.location, this.arrival, this.departure);
 
   DateTime get arrivalDateTime => DateTime.fromMillisecondsSinceEpoch(arrival);
-  DateTime get departureDateTime => DateTime.fromMillisecondsSinceEpoch(departure);
 
+  DateTime get departureDateTime =>
+      DateTime.fromMillisecondsSinceEpoch(departure);
 
+  Duration get duration => Duration(milliseconds: departure - arrival);
 
   @override
   String toString() {
-    return 'Stop: ${location.toString()} [$arrivalDateTime - $departureDateTime]';
+    return 'Stop: ${location.toString()} [$arrivalDateTime - $departureDateTime] ($duration)';
   }
 }
 
 class Place {
   int id;
   Location location;
-  double duration;
+  Duration duration;
 
   Place(this.id, this.location, this.duration);
 }
@@ -69,19 +71,19 @@ class Move {
   double get meanSpeed => distance / duration.toDouble();
 }
 
+/// Preprocessing for the Feature Extraction
+/// Finds Stops, Places and Moves for a day of GPS data
 class Preprocessor {
-  double minDist = 50;
-  int minDuration = 10 * 60 * 1000; // 10 minutes
-
-  DBSCAN dbscan =
-      DBSCAN(epsilon: 50, minPoints: 1, distanceMeasure: haversineDist);
+  double minStopDist = 50, minPlaceDist = 50;
+  Duration minStopDuration = Duration(minutes: 10),
+      minMoveDuration = Duration(minutes: 5);
 
   Function distf = haversineDist;
 
   /// Calculate centroid of a gps point cloud
-  Location findCentroid(List<LocationData> data) {
-    List<double> lats = data.map((d) => (d.location.latitude)).toList();
-    List<double> lons = data.map((d) => (d.location.longitude)).toList();
+  Location findCentroid(List<Location> data) {
+    List<double> lats = data.map((d) => (d.latitude)).toList();
+    List<double> lons = data.map((d) => (d.longitude)).toList();
 
     double medianLat = Stats.fromData(lats).median as double;
     double medianLon = Stats.fromData(lons).median as double;
@@ -89,14 +91,14 @@ class Preprocessor {
     return Location(medianLat, medianLon);
   }
 
-  bool isWithinRadius(Location a, Location b, radius) {
+  /// Checks if two points are within the minimum distance
+  bool isWithinMinDist(Location a, Location b) {
     double d = distf([a.latitude, a.longitude], [b.latitude, b.longitude]);
-    return d <= radius;
+    return d <= minStopDist;
   }
 
   /// Find the stops in a sequence of gps data points
-  List<Stop> findStops(
-      List<LocationData> data) {
+  List<Stop> findStops(List<LocationData> data) {
     List<Stop> stops = [];
 
     int i = 0;
@@ -105,23 +107,66 @@ class Preprocessor {
 
     while (i < N) {
       j = i + 1;
-      List<LocationData> g = data.sublist(i, j);
-      Location c = findCentroid(g);
+      List<LocationData> pointCloud = data.sublist(i, j);
+      Location centroid = findCentroid(pointCloud.map((d) => (d.location)));
 
-      while (j < N && isWithinRadius(data[j].location, c, minDist)) {
+      while (j < N && isWithinMinDist(data[j].location, centroid)) {
         j++;
-        g = data.sublist(i, j);
-        c = findCentroid(g);
+        pointCloud = data.sublist(i, j);
+        centroid = findCentroid(pointCloud.map((d) => (d.location)));
       }
 
       /// Check that the stop lasted for the minimum duration
-      int duration = g.last.time - g.first.time;
-      if (duration >= minDuration) {
-        stops.add(Stop(c, g.first.time, g.last.time));
+      Stop s = Stop(centroid, pointCloud.first.time, pointCloud.last.time);
+      if (s.duration >= minStopDuration) {
+        stops.add(Stop(centroid, pointCloud.first.time, pointCloud.last.time));
       }
       i = j;
     }
 
     return stops;
+  }
+
+  /// Finds the places by clustering stops with the DBSCAN algorithm
+  List<Place> findPlaces(List<Stop> stops) {
+
+    List<Place> places = [];
+
+    DBSCAN dbscan = DBSCAN(
+        epsilon: minPlaceDist, minPoints: 1, distanceMeasure: haversineDist);
+
+    /// Extract gps coordinates from stops
+    List<List<double>> gpsCoords =
+        stops.map((s) => ([s.location.latitude, s.location.longitude]));
+
+    /// Run DBSCAN on data points
+    dbscan.run(gpsCoords);
+
+    /// Extract labels for each stop, each label being a cluster
+    /// Filter out stops labelled as noise (where label is -1)
+    Set<int> clusterLabels = dbscan.label.where((l) => (l != -1)).toSet();
+
+    for (int label in clusterLabels) {
+      /// Get indices of all stops with the current cluster label
+      List<int> indices =
+          stops.asMap().keys.where((i) => (dbscan.label[i] == label));
+
+      /// For each index, get the corresponding stop
+      List<Stop> stopsForPlace = indices.map((i) => (stops[i]));
+
+      /// Given all stops belonging to a place,
+      /// calculate the centroid of the place
+      Location centroid = findCentroid(stopsForPlace.map((x) => (x.location)));
+
+      /// Calculate the sum of the durations spent at the stops,
+      /// belonging to the place
+      Duration duration =
+          stopsForPlace.map((s) => (s.duration)).reduce((a, b) => a + b);
+
+      /// Add place to the list
+      places.add(Place(label, centroid, duration));
+    }
+
+    return places;
   }
 }
