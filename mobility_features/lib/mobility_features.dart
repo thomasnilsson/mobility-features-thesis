@@ -5,6 +5,18 @@ import 'dart:math';
 import 'dataset.dart';
 import 'package:stats/stats.dart';
 
+/// Returns an [Iterable] of [List]s where the nth element in the returned
+/// iterable contains the nth element from every Iterable in [iterables]. The
+/// returned Iterable is as long as the shortest Iterable in the argument. If
+/// [iterables] is empty, it returns an empty list.
+Iterable<List<T>> zip<T>(Iterable<Iterable<T>> iterables) sync* {
+  if (iterables.isEmpty) return;
+  final iterators = iterables.map((e) => e.iterator).toList(growable: false);
+  while (iterators.every((e) => e.moveNext())) {
+    yield iterators.map((e) => e.current).toList(growable: false);
+  }
+}
+
 void printList(List l) {
   for (var x in l) print(x);
   print('-' * 50);
@@ -31,9 +43,10 @@ double haversineDist(List<double> point1, List<double> point2) {
 
 class Stop {
   Location location;
-  int arrival, departure, placeId;
+  int arrival, departure, placeId, samples;
 
-  Stop(this.location, this.arrival, this.departure, {this.placeId});
+  Stop(this.location, this.arrival, this.departure, this.samples,
+      {this.placeId});
 
   DateTime get arrivalDateTime => DateTime.fromMillisecondsSinceEpoch(arrival);
 
@@ -45,7 +58,7 @@ class Stop {
   @override
   String toString() {
     String placeString = placeId != null ? placeId.toString() : '<NO PLACE_ID>';
-    return 'Stop: ${location.toString()} [$arrivalDateTime - $departureDateTime] ($duration) (PlaceId: $placeString)';
+    return 'Stop: ${location.toString()} [$arrivalDateTime - $departureDateTime] ($duration) (samples: $samples) (PlaceId: $placeString)';
   }
 }
 
@@ -91,11 +104,12 @@ class Move {
 /// Preprocessing for the Feature Extraction.
 /// Finds Stops, Places and Moves for a day of GPS data
 class Preprocessor {
-  double minStopDist = 50, minPlaceDist = 50;
-  Duration minStopDuration = Duration(minutes: 10),
-      minMoveDuration = Duration(minutes: 5);
+  double minStopDist = 25, minPlaceDist = 25, mergeDist = 5, minMoveDist = 50;
+  Duration minStopDuration = Duration(minutes: 15),
+      minMoveDuration = Duration(minutes: 5),
+      minMergeDuration = Duration(minutes: 5);
+  bool merge = true;
 
-  Function distf = haversineDist;
 
   /// Calculate centroid of a gps point cloud
   Location findCentroid(List<Location> data) {
@@ -110,7 +124,8 @@ class Preprocessor {
 
   /// Checks if two points are within the minimum distance
   bool isWithinMinDist(Location a, Location b) {
-    double d = distf([a.latitude, a.longitude], [b.latitude, b.longitude]);
+    double d =
+        haversineDist([a.latitude, a.longitude], [b.latitude, b.longitude]);
     return d <= minStopDist;
   }
 
@@ -140,7 +155,8 @@ class Preprocessor {
       }
 
       /// The centroid of the biggest subset is the location of the found stop
-      Stop s = Stop(centroid, dataSubset.first.time, dataSubset.last.time);
+      Stop s = Stop(centroid, dataSubset.first.time, dataSubset.last.time,
+          dataSubset.length);
       stops.add(s);
 
       /// Update i, such that we no longer look at
@@ -149,7 +165,11 @@ class Preprocessor {
     }
 
     /// Filter out stops which are shorter than the min. duration
-    return stops.where((s) => (s.duration >= minStopDuration)).toList();
+    stops = stops.where((s) => (s.duration >= minStopDuration)).toList();
+
+    /// If merge parameter set to true, then merge noisy stops
+    /// Otherwise leave them in
+    return merge ? mergeStops(stops) : stops;
   }
 
   /// Finds the places by clustering stops with the DBSCAN algorithm
@@ -238,7 +258,8 @@ class Preprocessor {
 
         /// We have moves after stop[i]
         if (locationPoints.isNotEmpty) {
-          arrival = locationPoints.map((d) => (d.time)).reduce(max);
+          arrival =
+              locationPoints.map((d) => (d.time)).reduce((a, b) => (a + b));
 
           /// Set -1 as the place_id for the move, since it
           /// has a 'dead end' i.e. the stop would be considered noise by DBSCAN
@@ -255,5 +276,90 @@ class Preprocessor {
 
     /// Filter out moves that are too short according to the criterion
     return moves.where((m) => (m.duration >= minMoveDuration)).toList();
+  }
+
+
+  /// Criteria for merging a stop with another
+  bool mergeCriteria(double deltaDist, Duration deltaTime) {
+    return deltaDist <= mergeDist && deltaTime <= minMergeDuration;
+  }
+
+  /// Merging noisy stops, not working as intended right now
+  List<Stop> mergeStops(List<Stop> stops) {
+    /// Check if merge applicable
+    if (stops.length < 2) {
+      return stops;
+    }
+
+    List<Stop> merged = [];
+    List<int> idx = stops.asMap().keys.toList();
+
+    /// Compute deltas
+    int nStops = stops.length;
+    List<double> lats = stops.map((s) => (s.location.latitude)).toList();
+    List<double> lons = stops.map((s) => (s.location.longitude)).toList();
+
+    /// Shift, and backwards-fill
+    List<double> latsShifted = [lats[0]] + lats.sublist(0, nStops - 1);
+    List<double> lonsShifted = [lons[0]] + lons.sublist(0, nStops - 1);
+
+    List<double> deltaMeters = idx
+        .map((i) => (haversineDist(
+        [lats[i], lons[i]], [latsShifted[i], lonsShifted[i]])))
+        .toList();
+
+    List<int> arrivals = stops.map((s) => (s.arrival)).toList();
+    List<int> departures = stops.map((s) => (s.departure)).toList();
+
+    /// The first entry should be 0 after subtracing the arrival from the
+    /// departure, this is why the first entry of the shifted departures is
+    /// set to the first element of the arrivals
+    List<int> departuresShifted =
+        [arrivals[0]] + departures.sublist(0, nStops - 1);
+    List<Duration> deltaTime = zip([arrivals, departuresShifted])
+        .map((t) => (Duration(milliseconds: t[0] - t[1])))
+        .toList();
+
+    /// List of indices from 0 to N.
+    /// Filter out indices for which the stop does not satisfy the criteria
+    /// Bad indices are marked with -1, good indices are left alone
+    List<int> mergeIdx = idx
+        .map((i) => (mergeCriteria(deltaMeters[i], deltaTime[i]) ? -1 : i))
+        .toList();
+
+    /// Forward fill indices, make sure first index is not -1 (set it manually)
+    mergeIdx[0] = 0;
+    mergeIdx = idx
+        .map((i) => (mergeIdx[i] >= 0 ? mergeIdx[i] : mergeIdx[i - 1]))
+        .toList();
+
+    Set<int> stopIndices = mergeIdx.toSet();
+
+    /// Merge stops based on their indices
+    for (int index in stopIndices) {
+      List<int> stopsToMergeIdx =
+      idx.where((i) => (mergeIdx[i] == index)).toList();
+      List<Stop> stopsToMerge = stopsToMergeIdx.map((i) => (stops[i])).toList();
+
+      /// Calculate mean location of the stops to merge
+      List<double> lats =
+      stopsToMerge.map((s) => (s.location.latitude)).toList();
+      List<double> lons =
+      stopsToMerge.map((s) => (s.location.longitude)).toList();
+
+      Location meanLocation =
+      Location(Stats.fromData(lats).mean, Stats.fromData(lons).mean);
+
+      /// Sum up gps samples used to create the stop
+      int samplesSum =
+      stopsToMerge.map((s) => (s.samples)).reduce((a, b) => a + b);
+
+      /// Find arrival and departure with min and max
+      int arrival = stopsToMerge.map((s) => (s.arrival)).reduce(min);
+      int departure = stopsToMerge.map((s) => (s.departure)).reduce(max);
+      merged.add(Stop(meanLocation, arrival, departure, samplesSum));
+    }
+
+    return merged;
   }
 }
