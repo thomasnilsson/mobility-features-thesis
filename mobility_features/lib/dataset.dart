@@ -1,36 +1,4 @@
-class LocationData {
-  Location location;
-  int time;
-  double speed = 0;
-
-  LocationData(this.location, this.time, {this.speed});
-
-  factory LocationData.fromJson(Map<String, dynamic> x) {
-    num lat = x['latitude'] as double;
-    num lon = x['longitude'] as double;
-    int time = x['datetime'];
-    return LocationData(Location(lat, lon), time);
-  }
-}
-
-/// A location contains a latitude and longitude (no time component)
-class Location {
-  double longitude;
-  double latitude;
-
-  Location(this.latitude, this.longitude);
-
-  factory Location.fromJson(Map<String, dynamic> x) {
-    num lat = x['latitude'] as double;
-    num lon = x['longitude'] as double;
-    return Location(lat, lon);
-  }
-
-  @override
-  String toString() {
-    return 'Location: ($latitude, $longitude)';
-  }
-}
+part of mobility_features_lib;
 
 class Dataset {
   List<LocationData> get data =>
