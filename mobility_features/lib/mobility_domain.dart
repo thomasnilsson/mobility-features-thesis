@@ -76,7 +76,7 @@ class Move {
   Move(this.locationFrom, this.locationTo, this.placeFromId, this.placeToId,
       this.departure, this.arrival);
 
-  /// The haversine distance between the two places
+  /// The haversine distance between the two places, in meters
   double get distance {
     return haversineDist([locationFrom.latitude, locationFrom.longitude],
         [locationTo.latitude, locationTo.longitude]);
@@ -85,7 +85,7 @@ class Move {
   /// The duration of the move in milliseconds
   Duration get duration => Duration(milliseconds: arrival - departure);
 
-  /// The average speed when moving between the two places
+  /// The average speed when moving between the two places (m/s)
   double get meanSpeed => distance / duration.inSeconds.toDouble();
 
   @override

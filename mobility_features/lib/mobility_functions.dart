@@ -1,5 +1,7 @@
 part of mobility_features_lib;
 
+
+
 /// Returns an [Iterable] of [List]s where the nth element in the returned
 /// iterable contains the nth element from every Iterable in [iterables]. The
 /// returned Iterable is as long as the shortest Iterable in the argument. If
@@ -11,7 +13,6 @@ Iterable<List<T>> zip<T>(Iterable<Iterable<T>> iterables) sync* {
     yield iterators.map((e) => e.current).toList(growable: false);
   }
 }
-
 
 /// Convert from degrees to radians
 double radiansFromDegrees(final double degrees) => degrees * (pi / 180.0);
@@ -31,4 +32,8 @@ double haversineDist(List<double> point1, List<double> point2) {
 
   return distance;
 }
+
+
+
+
 

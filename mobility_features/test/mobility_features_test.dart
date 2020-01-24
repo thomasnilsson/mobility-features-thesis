@@ -1,6 +1,7 @@
 import 'mobility_features_test_lib.dart';
-import 'package:mobility_features/mobility_features.dart';
+import 'package:mobility_features/mobility_features_lib.dart';
 import 'package:flutter_test/flutter_test.dart';
+
 
 void main() {
   test('run db scan', () {
@@ -20,5 +21,11 @@ void main() {
     List<Move> moves = p.findMoves(data, stops);
     printList(moves);
 
+    Features f = Features(data, stops, places, moves);
+    print('Number of Clusters: ${f.numberOfClusters}');
+    print('Location Variance: ${f.locationVariance}');
+    print('Entropy: ${f.entropy}');
+    print('Normalized Entropy: ${f.normalizedEntropy}');
+    print('Total Distance (meters): ${f.totalDistance}');
   });
 }
