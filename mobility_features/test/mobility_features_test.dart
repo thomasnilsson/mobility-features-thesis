@@ -1,6 +1,6 @@
-import 'package:flutter_test/flutter_test.dart';
-import 'test_utils.dart';
+import 'mobility_features_test_lib.dart';
 import 'package:mobility_features/mobility_features.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('run db scan', () {

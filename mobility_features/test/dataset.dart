@@ -1,4 +1,4 @@
-part of mobility_features_lib;
+part of mobility_features_test_lib;
 
 class Dataset {
   List<LocationData> get data =>
