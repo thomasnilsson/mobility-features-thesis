@@ -3,15 +3,19 @@ part of mobility_features_lib;
 /// Preprocessing for the Feature Extraction.
 /// Finds Stops, Places and Moves for a day of GPS data
 class Preprocessor {
-  double minStopDist = 25, minPlaceDist = 25, mergeDist = 5, minMoveDist = 50;
-  Duration minStopDuration = Duration(minutes: 15),
-      minMoveDuration = Duration(minutes: 5),
-      minMergeDuration = Duration(minutes: 5);
-  bool merge = true;
+  double _minStopDist = 25,
+      _minPlaceDist = 25,
+      _mergeDist = 5,
+      _minMoveDist = 50;
+  Duration _minStopDuration = Duration(minutes: 15),
+      _minMoveDuration = Duration(minutes: 5),
+      _minMergeDuration = Duration(minutes: 5);
+  bool _merge = true;
 
+  Preprocessor(data);
 
   /// Calculate centroid of a gps point cloud
-  Location findCentroid(List<Location> data) {
+  Location _findCentroid(List<Location> data) {
     List<double> lats = data.map((d) => (d.latitude)).toList();
     List<double> lons = data.map((d) => (d.longitude)).toList();
 
@@ -22,10 +26,10 @@ class Preprocessor {
   }
 
   /// Checks if two points are within the minimum distance
-  bool isWithinMinDist(Location a, Location b) {
+  bool _isWithinMinStopDist(Location a, Location b) {
     double d =
         haversineDist([a.latitude, a.longitude], [b.latitude, b.longitude]);
-    return d <= minStopDist;
+    return d <= _minStopDist;
   }
 
   /// Find the stops in a sequence of gps data points
@@ -42,15 +46,15 @@ class Preprocessor {
     while (i < N) {
       j = i + 1;
       dataSubset = data.sublist(i, j);
-      centroid = findCentroid(dataSubset.map((d) => (d.location)).toList());
+      centroid = _findCentroid(dataSubset.map((d) => (d.location)).toList());
 
       /// Include a new data point until no longer within radius
       /// to be considered at stop
       /// or when all points have been taken
-      while (j < N && isWithinMinDist(data[j].location, centroid)) {
+      while (j < N && _isWithinMinStopDist(data[j].location, centroid)) {
         j += 1;
         dataSubset = data.sublist(i, j);
-        centroid = findCentroid(dataSubset.map((d) => (d.location)).toList());
+        centroid = _findCentroid(dataSubset.map((d) => (d.location)).toList());
       }
 
       /// The centroid of the biggest subset is the location of the found stop
@@ -64,11 +68,11 @@ class Preprocessor {
     }
 
     /// Filter out stops which are shorter than the min. duration
-    stops = stops.where((s) => (s.duration >= minStopDuration)).toList();
+    stops = stops.where((s) => (s.duration >= _minStopDuration)).toList();
 
     /// If merge parameter set to true, then merge noisy stops
     /// Otherwise leave them in
-    return merge ? mergeStops(stops) : stops;
+    return _merge ? _mergeStops(stops) : stops;
   }
 
   /// Finds the places by clustering stops with the DBSCAN algorithm
@@ -76,7 +80,7 @@ class Preprocessor {
     List<Place> places = [];
 
     DBSCAN dbscan = DBSCAN(
-        epsilon: minPlaceDist, minPoints: 1, distanceMeasure: haversineDist);
+        epsilon: _minPlaceDist, minPoints: 1, distanceMeasure: haversineDist);
 
     /// Extract gps coordinates from stops
     List<List<double>> gpsCoords = stops
@@ -102,7 +106,7 @@ class Preprocessor {
       /// calculate the centroid of the place
       List<Location> stopsLocations =
           stopsForPlace.map((x) => (x.location)).toList();
-      Location centroid = findCentroid(stopsLocations);
+      Location centroid = _findCentroid(stopsLocations);
 
       /// Calculate the sum of the durations spent at the stops,
       /// belonging to the place
@@ -174,17 +178,16 @@ class Preprocessor {
     }
 
     /// Filter out moves that are too short according to the criterion
-    return moves.where((m) => (m.duration >= minMoveDuration)).toList();
+    return moves.where((m) => (m.duration >= _minMoveDuration)).toList();
   }
 
-
   /// Criteria for merging a stop with another
-  bool mergeCriteria(double deltaDist, Duration deltaTime) {
-    return deltaDist <= mergeDist && deltaTime <= minMergeDuration;
+  bool _mergeCriteria(double deltaDist, Duration deltaTime) {
+    return deltaDist <= _mergeDist && deltaTime <= _minMergeDuration;
   }
 
   /// Merging noisy stops, not working as intended right now
-  List<Stop> mergeStops(List<Stop> stops) {
+  List<Stop> _mergeStops(List<Stop> stops) {
     /// Check if merge applicable
     if (stops.length < 2) {
       return stops;
@@ -204,7 +207,7 @@ class Preprocessor {
 
     List<double> deltaMeters = idx
         .map((i) => (haversineDist(
-        [lats[i], lons[i]], [latsShifted[i], lonsShifted[i]])))
+            [lats[i], lons[i]], [latsShifted[i], lonsShifted[i]])))
         .toList();
 
     List<int> arrivals = stops.map((s) => (s.arrival)).toList();
@@ -223,7 +226,7 @@ class Preprocessor {
     /// Filter out indices for which the stop does not satisfy the criteria
     /// Bad indices are marked with -1, good indices are left alone
     List<int> mergeIdx = idx
-        .map((i) => (mergeCriteria(deltaMeters[i], deltaTime[i]) ? -1 : i))
+        .map((i) => (_mergeCriteria(deltaMeters[i], deltaTime[i]) ? -1 : i))
         .toList();
 
     /// Forward fill indices, make sure first index is not -1 (set it manually)
@@ -237,21 +240,21 @@ class Preprocessor {
     /// Merge stops based on their indices
     for (int index in stopIndices) {
       List<int> stopsToMergeIdx =
-      idx.where((i) => (mergeIdx[i] == index)).toList();
+          idx.where((i) => (mergeIdx[i] == index)).toList();
       List<Stop> stopsToMerge = stopsToMergeIdx.map((i) => (stops[i])).toList();
 
       /// Calculate mean location of the stops to merge
       List<double> lats =
-      stopsToMerge.map((s) => (s.location.latitude)).toList();
+          stopsToMerge.map((s) => (s.location.latitude)).toList();
       List<double> lons =
-      stopsToMerge.map((s) => (s.location.longitude)).toList();
+          stopsToMerge.map((s) => (s.location.longitude)).toList();
 
       Location meanLocation =
-      Location(Stats.fromData(lats).mean, Stats.fromData(lons).mean);
+          Location(Stats.fromData(lats).mean, Stats.fromData(lons).mean);
 
       /// Sum up gps samples used to create the stop
       int samplesSum =
-      stopsToMerge.map((s) => (s.samples)).reduce((a, b) => a + b);
+          stopsToMerge.map((s) => (s.samples)).reduce((a, b) => a + b);
 
       /// Find arrival and departure with min and max
       int arrival = stopsToMerge.map((s) => (s.arrival)).reduce(min);
