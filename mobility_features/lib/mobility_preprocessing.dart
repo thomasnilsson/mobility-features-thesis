@@ -10,7 +10,7 @@ class Preprocessor {
   Duration _minStopDuration = Duration(minutes: 15),
       _minMoveDuration = Duration(minutes: 5),
       _minMergeDuration = Duration(minutes: 5);
-  bool _merge = true;
+  bool _merge = false;
 
   Preprocessor(data);
 
@@ -68,6 +68,7 @@ class Preprocessor {
     }
 
     /// Filter out stops which are shorter than the min. duration
+    print(stops.length);
     stops = stops.where((s) => (s.duration >= _minStopDuration)).toList();
 
     /// If merge parameter set to true, then merge noisy stops
@@ -178,7 +179,10 @@ class Preprocessor {
     }
 
     /// Filter out moves that are too short according to the criterion
-    return moves.where((m) => (m.duration >= _minMoveDuration)).toList();
+    return moves
+        .where((m) =>
+            (m.duration >= _minMoveDuration && m.distance >= _minMoveDist))
+        .toList();
   }
 
   /// Criteria for merging a stop with another

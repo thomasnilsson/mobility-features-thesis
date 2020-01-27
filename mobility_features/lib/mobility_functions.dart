@@ -1,6 +1,10 @@
 part of mobility_features_lib;
 
 
+bool sameDate(DateTime date1, DateTime date2) {
+  int diffDays = date1.difference(date2).inDays;
+  return diffDays == 0 && date1.day == date2.day;
+}
 
 /// Returns an [Iterable] of [List]s where the nth element in the returned
 /// iterable contains the nth element from every Iterable in [iterables]. The
@@ -33,7 +37,8 @@ double haversineDist(List<double> point1, List<double> point2) {
   return distance;
 }
 
-
-
-
-
+Iterable<int> range(int low, int high) sync* {
+  for (int i = low; i < high; ++i) {
+    yield i;
+  }
+}
