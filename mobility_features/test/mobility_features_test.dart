@@ -4,9 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 
 void main() {
-  test('run db scan', () {
-    List<LocationData> data = Dataset().data;
-    final p = Preprocessor();
+  test('run db scan', () async {
+    List<LocationData> data = await Dataset().singleDateData;
+    print(data);
+    final p = Preprocessor(data);
 
     /// Find stops, stops will have an empty [place] field
     List<Stop> stops = p.findStops(data);
