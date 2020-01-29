@@ -2,16 +2,24 @@ part of mobility_features_lib;
 
 class LocationData {
   Location location;
-  int time;
   double speed = 0;
+  DateTime timestamp;
 
-  LocationData(this.location, this.time, {this.speed});
+  LocationData(this.location, this.timestamp, {this.speed});
 
   factory LocationData.fromJson(Map<String, dynamic> x) {
     num lat = x['latitude'] as double;
     num lon = x['longitude'] as double;
     int time = x['datetime'];
-    return LocationData(Location(lat, lon), time);
+    DateTime _timestamp = DateTime.fromMillisecondsSinceEpoch(time);
+    _timestamp.subtract(Duration(hours: -1));
+    return LocationData(Location(lat, lon), _timestamp);
+  }
+
+  @override
+  String toString() {
+    // TODO: implement toString
+    return '$location [$timestamp]';
   }
 }
 
@@ -36,22 +44,19 @@ class Location {
 
 class Stop {
   Location location;
-  int arrival, departure, placeId, samples;
+  int placeId, samples;
+  DateTime arrival, departure;
 
   Stop(this.location, this.arrival, this.departure, this.samples,
       {this.placeId});
 
-  DateTime get arrivalDateTime => DateTime.fromMillisecondsSinceEpoch(arrival);
 
-  DateTime get departureDateTime =>
-      DateTime.fromMillisecondsSinceEpoch(departure);
-
-  Duration get duration => Duration(milliseconds: departure - arrival);
+  Duration get duration => Duration(milliseconds: departure.millisecondsSinceEpoch - arrival.millisecondsSinceEpoch);
 
   @override
   String toString() {
     String placeString = placeId != null ? placeId.toString() : '<NO PLACE_ID>';
-    return 'Stop: ${location.toString()} [$arrivalDateTime - $departureDateTime] ($duration) (samples: $samples) (PlaceId: $placeString)';
+    return 'Stop: ${location.toString()} [$arrival - $departure] ($duration) (samples: $samples) (PlaceId: $placeString)';
   }
 }
 
@@ -69,7 +74,7 @@ class Place {
 }
 
 class Move {
-  int departure, arrival;
+  DateTime departure, arrival;
   Location locationFrom, locationTo;
   int placeFromId, placeToId;
 
@@ -83,7 +88,7 @@ class Move {
   }
 
   /// The duration of the move in milliseconds
-  Duration get duration => Duration(milliseconds: arrival - departure);
+  Duration get duration => Duration(milliseconds: arrival.millisecondsSinceEpoch - departure.millisecondsSinceEpoch);
 
   /// The average speed when moving between the two places (m/s)
   double get meanSpeed => distance / duration.inSeconds.toDouble();

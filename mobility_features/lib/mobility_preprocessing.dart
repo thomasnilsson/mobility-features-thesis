@@ -58,8 +58,8 @@ class Preprocessor {
       }
 
       /// The centroid of the biggest subset is the location of the found stop
-      Stop s = Stop(centroid, dataSubset.first.time, dataSubset.last.time,
-          dataSubset.length);
+      Stop s = Stop(centroid, dataSubset.first.timestamp,
+          dataSubset.last.timestamp, dataSubset.length);
       stops.add(s);
 
       /// Update i, such that we no longer look at
@@ -126,8 +126,9 @@ class Preprocessor {
 
   List<Move> findMoves(List<LocationData> data, List<Stop> stops) {
     List<Move> moves = [];
-    int departure = data.map((d) => (d.time)).reduce(min);
-    int arrival;
+    DateTime departure = DateTime.fromMillisecondsSinceEpoch(
+        data.map((d) => (d.timestamp.millisecondsSinceEpoch)).reduce(min));
+    DateTime arrival;
 
     /// Non-existent starting stop
     int prevPlaceId = -1;
@@ -135,7 +136,8 @@ class Preprocessor {
     for (Stop stop in stops) {
       /// Check for moves between this and the next stop
       List<LocationData> locationPoints = data
-          .where((d) => (d.time >= departure && d.time <= stop.arrival))
+          .where((d) =>
+              (geq(d.timestamp, departure) && leq(d.timestamp, stop.arrival)))
           .toList();
 
       /// We have moves between stop[i] and stop[i+1]
@@ -158,12 +160,15 @@ class Preprocessor {
       /// no moves between stop[i] and stop[i+1]
       else {
         /// Check for moves after the current stop
-        locationPoints = data.where((d) => (d.time >= departure)).toList();
+        locationPoints =
+            data.where((d) => (geq(d.timestamp, departure))).toList();
 
         /// We have moves after stop[i]
         if (locationPoints.isNotEmpty) {
-          arrival =
-              locationPoints.map((d) => (d.time)).reduce((a, b) => (a + b));
+          int arrivalMs = locationPoints
+              .map((d) => (d.timestamp.millisecondsSinceEpoch))
+              .reduce((a, b) => (a + b));
+          arrival = DateTime.fromMillisecondsSinceEpoch(arrivalMs);
 
           /// Set -1 as the place_id for the move, since it
           /// has a 'dead end' i.e. the stop would be considered noise by DBSCAN
@@ -214,16 +219,18 @@ class Preprocessor {
             [lats[i], lons[i]], [latsShifted[i], lonsShifted[i]])))
         .toList();
 
-    List<int> arrivals = stops.map((s) => (s.arrival)).toList();
-    List<int> departures = stops.map((s) => (s.departure)).toList();
+    List<DateTime> arrivals = stops.map((s) => (s.arrival)).toList();
+    List<DateTime> departures = stops.map((s) => (s.departure)).toList();
 
     /// The first entry should be 0 after subtracing the arrival from the
     /// departure, this is why the first entry of the shifted departures is
     /// set to the first element of the arrivals
-    List<int> departuresShifted =
+    List<DateTime> departuresShifted =
         [arrivals[0]] + departures.sublist(0, nStops - 1);
     List<Duration> deltaTime = zip([arrivals, departuresShifted])
-        .map((t) => (Duration(milliseconds: t[0] - t[1])))
+        .map((t) => (Duration(
+            milliseconds:
+                t[0].millisecondsSinceEpoch - t[1].millisecondsSinceEpoch)))
         .toList();
 
     /// List of indices from 0 to N.
@@ -261,8 +268,14 @@ class Preprocessor {
           stopsToMerge.map((s) => (s.samples)).reduce((a, b) => a + b);
 
       /// Find arrival and departure with min and max
-      int arrival = stopsToMerge.map((s) => (s.arrival)).reduce(min);
-      int departure = stopsToMerge.map((s) => (s.departure)).reduce(max);
+      int arrivalMs = stopsToMerge
+          .map((s) => (s.arrival.millisecondsSinceEpoch))
+          .reduce(min);
+      int departureMs = stopsToMerge
+          .map((s) => (s.departure.millisecondsSinceEpoch))
+          .reduce(max);
+      DateTime arrival = DateTime.fromMillisecondsSinceEpoch(arrivalMs);
+      DateTime departure = DateTime.fromMillisecondsSinceEpoch(departureMs);
       merged.add(Stop(meanLocation, arrival, departure, samplesSum));
     }
 

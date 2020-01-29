@@ -42,3 +42,13 @@ Iterable<int> range(int low, int high) sync* {
     yield i;
   }
 }
+
+/// Less than or Equal for two DateTime objects
+bool leq(DateTime a, DateTime b) {
+  return a.isBefore(b) || a.isAtSameMomentAs(b);
+}
+
+/// Greater than or Equal for two DateTime objects
+bool geq(DateTime a, DateTime b) {
+  return a.isAfter(b) || a.isAtSameMomentAs(b);
+}
