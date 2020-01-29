@@ -3,16 +3,32 @@ part of mobility_features_lib;
 /// Preprocessing for the Feature Extraction.
 /// Finds Stops, Places and Moves for a day of GPS data
 class Preprocessor {
-  double _minStopDist = 25,
-      _minPlaceDist = 25,
-      _mergeDist = 5,
-      _minMoveDist = 50;
-  Duration _minStopDuration = Duration(minutes: 15),
-      _minMoveDuration = Duration(minutes: 5),
-      _minMergeDuration = Duration(minutes: 5);
-  bool _merge = false;
+  double minStopDist = 25, minPlaceDist = 25, mergeDist = 5, minMoveDist = 50;
+  Duration minStopDuration = Duration(minutes: 15),
+      minMoveDuration = Duration(minutes: 5),
+      minMergeDuration = Duration(minutes: 5);
+  bool enableMerging = false;
+  List<LocationData> data;
 
-  Preprocessor(data);
+  Preprocessor(this.data,
+      {this.minStopDist = 25,
+      this.minPlaceDist = 25,
+      this.minMoveDist = 50,
+      this.mergeDist = 5,
+      this.minStopDuration = const Duration(minutes: 15),
+      this.minMoveDuration = const Duration(minutes: 5),
+      this.minMergeDuration = const Duration(minutes: 5),
+      this.enableMerging = false});
+
+//  List<List<LocationData>> dataGroupedByDates() {
+//    Set<DateTime> uniqueDates = data.map((d) => (d.datetime.date)).toSet();
+//    return uniqueDates;
+//  }
+
+  Set<DateTime> get uniqueDates {
+    Set<DateTime> uniqueDates = data.map((d) => (d.datetime.date)).toSet();
+    return uniqueDates;
+  }
 
   /// Calculate centroid of a gps point cloud
   Location _findCentroid(List<Location> data) {
@@ -29,7 +45,7 @@ class Preprocessor {
   bool _isWithinMinStopDist(Location a, Location b) {
     double d =
         haversineDist([a.latitude, a.longitude], [b.latitude, b.longitude]);
-    return d <= _minStopDist;
+    return d <= minStopDist;
   }
 
   /// Find the stops in a sequence of gps data points
@@ -58,8 +74,8 @@ class Preprocessor {
       }
 
       /// The centroid of the biggest subset is the location of the found stop
-      Stop s = Stop(centroid, dataSubset.first.timestamp,
-          dataSubset.last.timestamp, dataSubset.length);
+      Stop s = Stop(centroid, dataSubset.first.datetime,
+          dataSubset.last.datetime, dataSubset.length);
       stops.add(s);
 
       /// Update i, such that we no longer look at
@@ -69,11 +85,12 @@ class Preprocessor {
 
     /// Filter out stops which are shorter than the min. duration
     print(stops.length);
-    stops = stops.where((s) => (s.duration >= _minStopDuration)).toList();
+    stops = stops.where((s) => (s.duration >= minStopDuration)).toList();
 
     /// If merge parameter set to true, then merge noisy stops
     /// Otherwise leave them in
-    return _merge ? _mergeStops(stops) : stops;
+//    return enableMerging ? _mergeStops(stops) : stops;
+    return stops;
   }
 
   /// Finds the places by clustering stops with the DBSCAN algorithm
@@ -81,7 +98,7 @@ class Preprocessor {
     List<Place> places = [];
 
     DBSCAN dbscan = DBSCAN(
-        epsilon: _minPlaceDist, minPoints: 1, distanceMeasure: haversineDist);
+        epsilon: minPlaceDist, minPoints: 1, distanceMeasure: haversineDist);
 
     /// Extract gps coordinates from stops
     List<List<double>> gpsCoords = stops
@@ -127,7 +144,7 @@ class Preprocessor {
   List<Move> findMoves(List<LocationData> data, List<Stop> stops) {
     List<Move> moves = [];
     DateTime departure = DateTime.fromMillisecondsSinceEpoch(
-        data.map((d) => (d.timestamp.millisecondsSinceEpoch)).reduce(min));
+        data.map((d) => (d.datetime.millisecondsSinceEpoch)).reduce(min));
     DateTime arrival;
 
     /// Non-existent starting stop
@@ -137,7 +154,7 @@ class Preprocessor {
       /// Check for moves between this and the next stop
       List<LocationData> locationPoints = data
           .where((d) =>
-              (geq(d.timestamp, departure) && leq(d.timestamp, stop.arrival)))
+              (d.datetime.geq(departure) && d.datetime.leq(stop.arrival)))
           .toList();
 
       /// We have moves between stop[i] and stop[i+1]
@@ -161,12 +178,12 @@ class Preprocessor {
       else {
         /// Check for moves after the current stop
         locationPoints =
-            data.where((d) => (geq(d.timestamp, departure))).toList();
+            data.where((d) => (d.datetime.geq(departure))).toList();
 
         /// We have moves after stop[i]
         if (locationPoints.isNotEmpty) {
           int arrivalMs = locationPoints
-              .map((d) => (d.timestamp.millisecondsSinceEpoch))
+              .map((d) => (d.datetime.millisecondsSinceEpoch))
               .reduce((a, b) => (a + b));
           arrival = DateTime.fromMillisecondsSinceEpoch(arrivalMs);
 
@@ -185,14 +202,14 @@ class Preprocessor {
 
     /// Filter out moves that are too short according to the criterion
     return moves
-        .where((m) =>
-            (m.duration >= _minMoveDuration && m.distance >= _minMoveDist))
+        .where(
+            (m) => (m.duration >= minMoveDuration && m.distance >= minMoveDist))
         .toList();
   }
 
   /// Criteria for merging a stop with another
   bool _mergeCriteria(double deltaDist, Duration deltaTime) {
-    return deltaDist <= _mergeDist && deltaTime <= _minMergeDuration;
+    return deltaDist <= mergeDist && deltaTime <= minMergeDuration;
   }
 
   /// Merging noisy stops, not working as intended right now

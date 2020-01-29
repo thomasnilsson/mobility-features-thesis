@@ -5,15 +5,13 @@ author:
 homepage:
 
 environment:
-  sdk: ">=2.1.0 <3.0.0"
+  sdk: ">=2.7.0 <3.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
   simple_cluster: ^0.2.0
   stats: ^0.2.0+3
-
-#  location: ^2.3.5
 
 dev_dependencies:
   flutter_test:

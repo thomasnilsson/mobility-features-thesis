@@ -42,11 +42,11 @@ class Features {
       moves.map((m) => (m.distance)).reduce((a, b) => a + b);
 
   /// TIME SPENT AT PLACES EACH HOUR
-  List<List<double>> calculateTimeSpentAtPlaceAtHour(DateTime date) {
+  List<List<double>> calculateTimeSpentAtPlaceAtHour(DateTime chosenDateTime) {
     /// All stops on the current date
     List<Stop> stopsOnDay = stops
-        .where((s) => (sameDate(s.arrival, date) &&
-            sameDate(s.departure, date)))
+        .where((s) => (s.arrival.date == chosenDateTime.date &&
+            s.departure.date == chosenDateTime.date))
         .toList();
 
     Set<int> placeLabels = stopsOnDay.map((s) => (s.placeId)).toSet();
@@ -60,8 +60,8 @@ class Features {
       List<Stop> stopsAtPlace =
           stopsOnDay.where((s) => (s.placeId) == pId).toList();
       for (Stop s in stopsAtPlace) {
-
         StopHours sr = StopHours.fromStop(s);
+
         /// For each hour of the day, add the hours from the StopRow to the matrix
         range(0, HOURS_IN_A_DAY)
             .forEach((h) => (hourMatrix[h][pId] += sr.hourSlots[h]));
@@ -84,14 +84,14 @@ class Features {
   /// Home Stay
   /// TODO
 
-  double calculateRoutineIndex(DateTime date) {
+  double calculateRoutineIndex(DateTime chosenDateTime) {
     /// All stops on the current date
     List<Stop> current =
-        stops.where((s) => (sameDate(s.arrival, date))).toList();
+        stops.where((s) => (s.arrival.date == chosenDateTime.date)).toList();
 
     /// All stops before the current date
     List<Stop> history =
-        stops.where((s) => (!sameDate(s.departure, date))).toList();
+        stops.where((s) => (s.departure.date != chosenDateTime.date)).toList();
 
     /// If unable to calculate index, return 0
     if (current.isEmpty || history.isEmpty) return 0.0;
@@ -109,7 +109,7 @@ class StopHours {
     int start = s.arrival.hour;
     int end = s.departure.hour;
 
-    if (!sameDate(s.departure, s.arrival)) {
+    if (s.departure.date != s.arrival.date) {
       throw Exception(
           'Arrival and Departure should be on the same date, but was not! $s');
     }

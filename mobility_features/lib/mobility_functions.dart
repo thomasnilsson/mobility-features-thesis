@@ -1,11 +1,5 @@
 part of mobility_features_lib;
 
-
-bool sameDate(DateTime date1, DateTime date2) {
-  int diffDays = date1.difference(date2).inDays;
-  return diffDays == 0 && date1.day == date2.day;
-}
-
 /// Returns an [Iterable] of [List]s where the nth element in the returned
 /// iterable contains the nth element from every Iterable in [iterables]. The
 /// returned Iterable is as long as the shortest Iterable in the argument. If
@@ -20,6 +14,10 @@ Iterable<List<T>> zip<T>(Iterable<Iterable<T>> iterables) sync* {
 
 /// Convert from degrees to radians
 double radiansFromDegrees(final double degrees) => degrees * (pi / 180.0);
+
+extension on double {
+  double get radiansFromDegrees => this * (pi / 180.0);
+}
 
 /// Haversine distance between two points
 double haversineDist(List<double> point1, List<double> point2) {
@@ -43,12 +41,23 @@ Iterable<int> range(int low, int high) sync* {
   }
 }
 
-/// Less than or Equal for two DateTime objects
-bool leq(DateTime a, DateTime b) {
-  return a.isBefore(b) || a.isAtSameMomentAs(b);
-}
 
-/// Greater than or Equal for two DateTime objects
-bool geq(DateTime a, DateTime b) {
-  return a.isAfter(b) || a.isAtSameMomentAs(b);
+extension CompareDates on DateTime {
+  bool geq(DateTime other) {
+    return this.isAfter(other) || this.isAtSameMomentAs(other);
+  }
+
+  bool leq(DateTime other) {
+    return this.isBefore(other) || this.isAtSameMomentAs(other);
+  }
+
+  bool sameDate(DateTime other) {
+    return this.year == other.year &&
+        this.month == other.month &&
+        this.day == other.day;
+  }
+
+  DateTime get date {
+    return DateTime(this.year, this.month, this.day);
+  }
 }

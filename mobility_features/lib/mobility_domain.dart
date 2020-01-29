@@ -3,23 +3,23 @@ part of mobility_features_lib;
 class LocationData {
   Location location;
   double speed = 0;
-  DateTime timestamp;
+  DateTime datetime;
 
-  LocationData(this.location, this.timestamp, {this.speed});
+  LocationData(this.location, this.datetime, {this.speed});
 
   factory LocationData.fromJson(Map<String, dynamic> x) {
     num lat = x['latitude'] as double;
     num lon = x['longitude'] as double;
     int time = x['datetime'];
-    DateTime _timestamp = DateTime.fromMillisecondsSinceEpoch(time);
-    _timestamp.subtract(Duration(hours: -1));
-    return LocationData(Location(lat, lon), _timestamp);
+    DateTime _datetime = DateTime.fromMillisecondsSinceEpoch(time);
+    _datetime = _datetime.subtract(Duration(hours: 1));
+    return LocationData(Location(lat, lon), _datetime);
   }
 
   @override
   String toString() {
     // TODO: implement toString
-    return '$location [$timestamp]';
+    return '$location [$datetime]';
   }
 }
 
