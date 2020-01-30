@@ -55,3 +55,8 @@ extension CompareDates on DateTime {
     return DateTime(this.year, this.month, this.day);
   }
 }
+
+
+extension UniqueList on List {
+  List get unique => this.toSet().toList();
+}

@@ -1,5 +1,6 @@
 part of mobility_features_lib;
 
+
 /// Preprocessing for the Feature Extraction.
 /// Finds Stops, Places and Moves for a day of GPS data
 class Preprocessor {
@@ -20,11 +21,29 @@ class Preprocessor {
       this.minMergeDuration = const Duration(minutes: 5),
       this.enableMerging = false});
 
+  /// Extracts unique dates in the dataset.
   Set<DateTime> get uniqueDates {
     Set<DateTime> uniqueDates = data.map((d) => (d.datetime.date)).toSet();
     return uniqueDates;
   }
 
+  Features get features {
+    List<Stop> stops = [];
+
+    for (List<LocationData> d in dataGroupedByDates) {
+      List<Stop> s = _findStops(d);
+      stops.addAll(s);
+    }
+
+    List<Place> places = _findPlaces(stops);
+    List<Move> moves = _findMoves(data, stops);
+
+    return Features(data, stops, places, moves);
+
+  }
+
+  /// Groups the dataset by dates.
+  /// This is necessary since data is processed on a daily basis.
   List<List<LocationData>> get dataGroupedByDates {
     List<List<LocationData>> grouped = [];
 
@@ -36,11 +55,10 @@ class Preprocessor {
 
   /// Calculate centroid of a gps point cloud
   Location _findCentroid(List<Location> data) {
-    List<double> lats = data.map((d) => (d.latitude)).toList();
-    List<double> lons = data.map((d) => (d.longitude)).toList();
-
-    double medianLat = Stats.fromData(lats).median as double;
-    double medianLon = Stats.fromData(lons).median as double;
+    double medianLat =
+        Stats.fromData(data.map((d) => (d.latitude)).toList()).median as double;
+    double medianLon = Stats.fromData(data.map((d) => (d.longitude)).toList())
+        .median as double;
 
     return Location(medianLat, medianLon);
   }
@@ -53,7 +71,7 @@ class Preprocessor {
   }
 
   /// Find the stops in a sequence of gps data points
-  List<Stop> findStops(List<LocationData> data) {
+  List<Stop> _findStops(List<LocationData> data) {
     List<Stop> stops = [];
     int i = 0;
     int j;
@@ -92,12 +110,11 @@ class Preprocessor {
 
     /// If merge parameter set to true, then merge noisy stops
     /// Otherwise leave them in
-//    return enableMerging ? _mergeStops(stops) : stops;
-    return stops;
+    return enableMerging ? _mergeStops(stops) : stops;
   }
 
   /// Finds the places by clustering stops with the DBSCAN algorithm
-  List<Place> findPlaces(List<Stop> stops) {
+  List<Place> _findPlaces(List<Stop> stops) {
     List<Place> places = [];
 
     DBSCAN dbscan = DBSCAN(
@@ -144,7 +161,7 @@ class Preprocessor {
     return places;
   }
 
-  List<Move> findMoves(List<LocationData> data, List<Stop> stops) {
+  List<Move> _findMoves(List<LocationData> data, List<Stop> stops) {
     List<Move> moves = [];
     DateTime departure = DateTime.fromMillisecondsSinceEpoch(
         data.map((d) => (d.datetime.millisecondsSinceEpoch)).reduce(min));

@@ -1,6 +1,6 @@
 part of mobility_features_lib;
 
-final int HOURS_IN_A_DAY = 24;
+const int HOURS_IN_A_DAY = 24;
 
 class Features {
   List<LocationData> data;

@@ -50,8 +50,9 @@ class Stop {
   Stop(this.location, this.arrival, this.departure, this.samples,
       {this.placeId});
 
-
-  Duration get duration => Duration(milliseconds: departure.millisecondsSinceEpoch - arrival.millisecondsSinceEpoch);
+  Duration get duration => Duration(
+      milliseconds:
+          departure.millisecondsSinceEpoch - arrival.millisecondsSinceEpoch);
 
   @override
   String toString() {
@@ -88,7 +89,9 @@ class Move {
   }
 
   /// The duration of the move in milliseconds
-  Duration get duration => Duration(milliseconds: arrival.millisecondsSinceEpoch - departure.millisecondsSinceEpoch);
+  Duration get duration => Duration(
+      milliseconds:
+          arrival.millisecondsSinceEpoch - departure.millisecondsSinceEpoch);
 
   /// The average speed when moving between the two places (m/s)
   double get meanSpeed => distance / duration.inSeconds.toDouble();
