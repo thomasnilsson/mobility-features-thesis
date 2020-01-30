@@ -20,14 +20,18 @@ class Preprocessor {
       this.minMergeDuration = const Duration(minutes: 5),
       this.enableMerging = false});
 
-//  List<List<LocationData>> dataGroupedByDates() {
-//    Set<DateTime> uniqueDates = data.map((d) => (d.datetime.date)).toSet();
-//    return uniqueDates;
-//  }
-
   Set<DateTime> get uniqueDates {
     Set<DateTime> uniqueDates = data.map((d) => (d.datetime.date)).toSet();
     return uniqueDates;
+  }
+
+  List<List<LocationData>> get dataGroupedByDates {
+    List<List<LocationData>> grouped = [];
+
+    for (DateTime _date in uniqueDates) {
+      grouped.add(data.where((d) => (d.datetime.date == _date)).toList());
+    }
+    return grouped;
   }
 
   /// Calculate centroid of a gps point cloud
@@ -84,7 +88,6 @@ class Preprocessor {
     }
 
     /// Filter out stops which are shorter than the min. duration
-    print(stops.length);
     stops = stops.where((s) => (s.duration >= minStopDuration)).toList();
 
     /// If merge parameter set to true, then merge noisy stops

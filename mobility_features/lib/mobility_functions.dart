@@ -51,12 +51,6 @@ extension CompareDates on DateTime {
     return this.isBefore(other) || this.isAtSameMomentAs(other);
   }
 
-  bool sameDate(DateTime other) {
-    return this.year == other.year &&
-        this.month == other.month &&
-        this.day == other.day;
-  }
-
   DateTime get date {
     return DateTime(this.year, this.month, this.day);
   }
