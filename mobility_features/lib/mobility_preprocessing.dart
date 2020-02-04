@@ -11,6 +11,7 @@ class Preprocessor {
   bool enableMerging = false;
   List<LocationData> data;
 
+
   Preprocessor(this.data,
       {this.minStopDist = 25,
       this.minPlaceDist = 25,
@@ -27,7 +28,7 @@ class Preprocessor {
     return uniqueDates;
   }
 
-  Features get features {
+  Features featuresByDate(DateTime date) {
     List<Stop> stops = [];
 
     for (List<LocationData> d in dataGroupedByDates) {
@@ -38,7 +39,7 @@ class Preprocessor {
     List<Place> places = _findPlaces(stops);
     List<Move> moves = _findMoves(data, stops);
 
-    return Features(data, stops, places, moves);
+    return Features(date, data, stops, places, moves);
 
   }
 

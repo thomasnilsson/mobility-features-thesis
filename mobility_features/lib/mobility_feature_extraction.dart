@@ -7,8 +7,9 @@ class Features {
   List<Stop> stops;
   List<Place> places;
   List<Move> moves;
+  DateTime date;
 
-  Features(this.data, this.stops, this.places, this.moves);
+  Features(this.date, this.data, this.stops, this.places, this.moves);
 
   /// Number of clusters found by DBSCAN, i.e. number of places
   int get numberOfClusters => places.length;
@@ -82,7 +83,31 @@ class Features {
   }
 
   /// Home Stay
-  /// TODO
+  double get homeStay {
+    List<List<double>> hours = calculateTimeSpentAtPlaceAtHour(date);
+
+    /// Find the home place id
+    List<List<double>> nightHours = hours.sublist(0, 6);
+    List<double> nightHoursAtPlaces =
+        nightHours.map((h) => h.reduce((a, b) => a + b)).toList();
+    int homeIndex = nightHoursAtPlaces.argmax;
+
+    print('Home place: $homeIndex');
+
+    /// Calculate distribution for time spent at places
+    double timeSpentTotal = places
+        .map((p) => p.duration.inMilliseconds)
+        .reduce((a, b) => a + b)
+        .toDouble();
+    double timeSpentAtHome = places
+        .where((p) => p.id == homeIndex)
+        .first
+        .duration
+        .inMilliseconds
+        .toDouble();
+
+    return timeSpentAtHome / timeSpentTotal;
+  }
 
   double calculateRoutineIndex(DateTime chosenDateTime) {
     /// All stops on the current date

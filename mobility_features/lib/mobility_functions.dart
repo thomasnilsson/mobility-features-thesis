@@ -41,7 +41,6 @@ Iterable<int> range(int low, int high) sync* {
   }
 }
 
-
 extension CompareDates on DateTime {
   bool geq(DateTime other) {
     return this.isAfter(other) || this.isAtSameMomentAs(other);
@@ -56,7 +55,22 @@ extension CompareDates on DateTime {
   }
 }
 
+extension BetterList<T> on List<T> {
+  List<T> mapl<T>(T f(e)) => this.map(f).toList();
+  List<T> get unique => this.toSet().toList();
+}
 
-extension UniqueList on List {
-  List get unique => this.toSet().toList();
+extension NumList<num> on List<num> {
+  int get argmax {
+    double maxVal = -double.infinity;
+    int i = 0;
+
+    for (int j = 0; j < this.length; j++) {
+      if (this[j] as double > maxVal) {
+        maxVal = this[j] as double;
+        i = j;
+      }
+    }
+    return i;
+  }
 }
