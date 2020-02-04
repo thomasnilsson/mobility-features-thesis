@@ -13,18 +13,16 @@ Iterable<List<T>> zip<T>(Iterable<Iterable<T>> iterables) sync* {
 }
 
 /// Convert from degrees to radians
-double radiansFromDegrees(final double degrees) => degrees * (pi / 180.0);
-
 extension on double {
   double get radiansFromDegrees => this * (pi / 180.0);
 }
 
 /// Haversine distance between two points
 double haversineDist(List<double> point1, List<double> point2) {
-  double lat1 = radiansFromDegrees(point1[0]);
-  double lon1 = radiansFromDegrees(point1[1]);
-  double lat2 = radiansFromDegrees(point2[0]);
-  double lon2 = radiansFromDegrees(point2[1]);
+  double lat1 = point1[0].radiansFromDegrees;
+  double lon1 = point1[1].radiansFromDegrees;
+  double lat2 = point2[0].radiansFromDegrees;
+  double lon2 = point2[1].radiansFromDegrees;
 
   double earthRadius = 6378137.0; // WGS84 major axis
   double distance = 2 *
@@ -55,12 +53,8 @@ extension CompareDates on DateTime {
   }
 }
 
-extension BetterList<T> on List<T> {
-  List<T> mapl<T>(T f(e)) => this.map(f).toList();
-  List<T> get unique => this.toSet().toList();
-}
-
 extension NumList<num> on List<num> {
+
   int get argmax {
     double maxVal = -double.infinity;
     int i = 0;

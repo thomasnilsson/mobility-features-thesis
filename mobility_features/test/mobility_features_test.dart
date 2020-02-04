@@ -71,9 +71,15 @@ void main() async {
     print('Normalized Entropy: ${f.normalizedEntropy}');
     print('Total Distance (meters): ${f.totalDistance}');
     print('Homestay (%): ${f.homeStay}');
+    print('Routine index (%): ${f.routineIndexDifference(DateTime(2019, 11, 11), DateTime(2019, 11, 12))}');
 
-//    var m = f.calculateTimeSpentAtPlaceAtHour(DateTime.parse('2019-11-11'));
-//    printMatrix(m);
+    print('2019-11-11');
+    var m = f.calculateTimeSpentAtPlaceAtHour(DateTime.parse('2019-11-11'));
+    printMatrix(m);
+
+    print('2019-11-12');
+    var m2 = f.calculateTimeSpentAtPlaceAtHour(DateTime.parse('2019-11-12'));
+    printMatrix(m2);
 
   });
 }

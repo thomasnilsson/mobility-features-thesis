@@ -64,8 +64,9 @@ class Features {
         StopHours sr = StopHours.fromStop(s);
 
         /// For each hour of the day, add the hours from the StopRow to the matrix
-        range(0, HOURS_IN_A_DAY)
-            .forEach((h) => (hourMatrix[h][pId] += sr.hourSlots[h]));
+        for (int h in range(0, HOURS_IN_A_DAY)) {
+          hourMatrix[h][pId] += sr.hourSlots[h];
+        }
       }
     }
 
@@ -91,8 +92,6 @@ class Features {
     List<double> nightHoursAtPlaces =
         nightHours.map((h) => h.reduce((a, b) => a + b)).toList();
     int homeIndex = nightHoursAtPlaces.argmax;
-
-    print('Home place: $homeIndex');
 
     /// Calculate distribution for time spent at places
     double timeSpentTotal = places
@@ -120,6 +119,26 @@ class Features {
 
     /// If unable to calculate index, return 0
     if (current.isEmpty || history.isEmpty) return 0.0;
+  }
+
+  double routineIndexDifference(DateTime d1, DateTime d2) {
+    List<List<double>> hours1 = calculateTimeSpentAtPlaceAtHour(d1);
+    List<List<double>> hours2 = calculateTimeSpentAtPlaceAtHour(d2);
+
+    int numPlaces = min(hours1.first.length, hours2.first.length);
+
+    /// calculate overlap
+    List<double> timeslots = List<double>.filled(HOURS_IN_A_DAY, 0.0);
+
+    for (int i in range(0, HOURS_IN_A_DAY)) {
+      double r = 1.0;
+      for (int j in range(0, numPlaces)) {
+        /// Check that the two hours are the same
+        r = hours1[i][j] == hours2[i][j] ? r : 0.0;
+      }
+      timeslots[i] = r;
+    }
+    return 1.0 - timeslots.reduce((a, b) => a + b) / 24.0;
   }
 }
 
