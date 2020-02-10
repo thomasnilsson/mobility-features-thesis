@@ -51,12 +51,12 @@ class LocationData {
 /// and only after all places have been identified will a [Place] be assigned.
 class Stop {
   List<LocationData> locationDataPoints;
-  Location medianLocation;
+  Location location;
   int placeId, samples;
   DateTime arrival, departure;
 
   Stop(this.locationDataPoints, {this.placeId = -1}) {
-    medianLocation = calculateCentroid(locationDataPoints.locations);
+    location = calculateCentroid(locationDataPoints.locations);
     samples = locationDataPoints.length;
 
     /// Find min/max time
@@ -74,7 +74,7 @@ class Stop {
 
   @override
   String toString() {
-    return 'Stop at place $placeId,  (${medianLocation.toString()}) [$arrival - $departure] ($duration) ';
+    return 'Stop at place $placeId,  (${location.toString()}) [$arrival - $departure] ($duration) ';
   }
 }
 
@@ -82,11 +82,15 @@ class Stop {
 /// https://www.aaai.org/Papers/KDD/1996/KDD96-037.pdf
 class Place {
   int id;
+  List<Stop> stops;
   Location location;
-  Duration duration;
 
-  Place(this.id, this.location, this.duration);
+  Place(this.id, this.stops) {
+    location = calculateCentroid(stops.map((s) => s.location).toList());
+  }
 
+  Duration get duration => stops.map((s) => s.duration).reduce((a, b) => a + b);
+  
   @override
   String toString() {
     return 'Place ID: $id, at ${location.toString()} ($duration)';
@@ -97,29 +101,25 @@ class Place {
 /// A set of features can be derived from this such as the haversine distance between
 /// the stops, the duration of the move, and thereby also the average travel speed.
 class Move {
-  DateTime departure, arrival;
-  Location locationFrom, locationTo;
-  int placeFromId, placeToId;
+  Stop fromStop, toStop;
 
-  Move(this.locationFrom, this.locationTo, this.placeFromId, this.placeToId,
-      this.departure, this.arrival);
+  Move(this.fromStop, this.toStop);
 
   /// The haversine distance between the two places, in meters
   double get distance {
-    return haversineDist([locationFrom.latitude, locationFrom.longitude],
-        [locationTo.latitude, locationTo.longitude]);
+    return HaversineDist.fromLocation(fromStop.location, toStop.location);
   }
 
   /// The duration of the move in milliseconds
   Duration get duration => Duration(
-      milliseconds:
-          arrival.millisecondsSinceEpoch - departure.millisecondsSinceEpoch);
+      milliseconds: toStop.arrival.millisecondsSinceEpoch -
+          fromStop.departure.millisecondsSinceEpoch);
 
   /// The average speed when moving between the two places (m/s)
   double get meanSpeed => distance / duration.inSeconds.toDouble();
 
   @override
   String toString() {
-    return 'Move: $locationFrom --> $locationTo, (Place ${placeFromId} --> ${placeToId}) ($duration)';
+    return 'Move: ${fromStop.location} --> ${toStop.location}, (Place ${fromStop.placeId} --> ${toStop.placeId}) ($duration)';
   }
 }

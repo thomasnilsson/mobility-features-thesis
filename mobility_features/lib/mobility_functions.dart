@@ -17,20 +17,25 @@ extension on double {
   double get radiansFromDegrees => this * (pi / 180.0);
 }
 
-/// Haversine distance between two points
-double haversineDist(List<double> point1, List<double> point2) {
-  double lat1 = point1[0].radiansFromDegrees;
-  double lon1 = point1[1].radiansFromDegrees;
-  double lat2 = point2[0].radiansFromDegrees;
-  double lon2 = point2[1].radiansFromDegrees;
+class HaversineDist {
+  static double fromLocation(Location a, Location b) {
+    return fromDouble([a.latitude, a.longitude], [b.latitude, b.longitude]);
+  }
 
-  double earthRadius = 6378137.0; // WGS84 major axis
-  double distance = 2 *
-      earthRadius *
-      asin(sqrt(pow(sin(lat2 - lat1) / 2, 2) +
-          cos(lat1) * cos(lat2) * pow(sin(lon2 - lon1) / 2, 2)));
+  static double fromDouble(List<double> point1, List<double> point2) {
+    double lat1 = point1[0].radiansFromDegrees;
+    double lon1 = point1[1].radiansFromDegrees;
+    double lat2 = point2[0].radiansFromDegrees;
+    double lon2 = point2[1].radiansFromDegrees;
 
-  return distance;
+    double earthRadius = 6378137.0; // WGS84 major axis
+    double distance = 2 *
+        earthRadius *
+        asin(sqrt(pow(sin(lat2 - lat1) / 2, 2) +
+            cos(lat1) * cos(lat2) * pow(sin(lon2 - lon1) / 2, 2)));
+
+    return distance;
+  }
 }
 
 Iterable<int> range(int low, int high) sync* {
@@ -42,15 +47,12 @@ Iterable<int> range(int low, int high) sync* {
 /// Calculate centroid of a gps point cloud
 Location calculateCentroid(List<Location> data) {
   double medianLat =
-      Stats.fromData(data.map((d) => (d.latitude)).toList()).median
-          as double;
+      Stats.fromData(data.map((d) => (d.latitude)).toList()).median as double;
   double medianLon =
-      Stats.fromData(data.map((d) => (d.longitude)).toList()).median
-          as double;
+      Stats.fromData(data.map((d) => (d.longitude)).toList()).median as double;
 
   return Location(medianLat, medianLon);
 }
-
 
 extension CompareDates on DateTime {
   bool geq(DateTime other) {
@@ -82,5 +84,6 @@ extension NumList<num> on List<num> {
 }
 
 extension LocationList on List<LocationData> {
-  List<Location> get locations => this.map((LocationData d) => d.location).toList();
+  List<Location> get locations =>
+      this.map((LocationData d) => d.location).toList();
 }

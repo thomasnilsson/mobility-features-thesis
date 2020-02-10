@@ -1,7 +1,10 @@
 part of mobility_features_test_lib;
 
 void printList(List l) {
-  for (var x in l) print(x);
+  for (int i = 0; i < l.length; i++) {
+    print('[$i] ${l[i]}');
+  }
+
   print('-' * 50);
 }
 
