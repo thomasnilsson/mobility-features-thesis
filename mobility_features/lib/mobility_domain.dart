@@ -1,29 +1,7 @@
 part of mobility_features_lib;
 
-class LocationData {
-  Location location;
-  double speed = 0;
-  DateTime datetime;
-
-  LocationData(this.location, this.datetime, {this.speed});
-
-  factory LocationData.fromJson(Map<String, dynamic> x) {
-    num lat = x['latitude'] as double;
-    num lon = x['longitude'] as double;
-    int time = x['datetime'];
-    DateTime _datetime = DateTime.fromMillisecondsSinceEpoch(time);
-    _datetime = _datetime.subtract(Duration(hours: 1));
-    return LocationData(Location(lat, lon), _datetime);
-  }
-
-  @override
-  String toString() {
-    // TODO: implement toString
-    return '$location [$datetime]';
-  }
-}
-
-/// A location contains a latitude and longitude (no time component)
+/// A [Location] object contains a latitude and longitude
+/// and represents a 2D spatial coordinates
 class Location {
   double longitude;
   double latitude;
@@ -42,13 +20,53 @@ class Location {
   }
 }
 
-class Stop {
+/// A [LocationData] holds a 2D [Location] spatial data point
+/// as well as a [DateTime] value s.t. it may be temporally ordered
+class LocationData {
   Location location;
+  double speed = 0;
+  DateTime datetime;
+
+  LocationData(this.location, this.datetime, {this.speed});
+
+  factory LocationData.fromJson(Map<String, dynamic> x) {
+    num lat = x['latitude'] as double;
+    num lon = x['longitude'] as double;
+    int time = x['datetime'];
+    DateTime _datetime = DateTime.fromMillisecondsSinceEpoch(time);
+    _datetime = _datetime.subtract(Duration(hours: 1));
+    return LocationData(Location(lat, lon), _datetime);
+  }
+
+  @override
+  String toString() {
+    return '$location [$datetime]';
+  }
+}
+
+/// A [Stop] represents a cluster of [LocationData] which were 'close' to eachother
+/// wrt. to Time and 2D space, in a period of little- to no movement.
+/// A [Stop] has an assigned [placeId] which links it to a [Place].
+/// At initialization a stop will be assigned to the 'Noise' place (with id -1),
+/// and only after all places have been identified will a [Place] be assigned.
+class Stop {
+  List<LocationData> locationDataPoints;
+  Location medianLocation;
   int placeId, samples;
   DateTime arrival, departure;
 
-  Stop(this.location, this.arrival, this.departure, this.samples,
-      {this.placeId});
+  Stop(this.locationDataPoints, {this.placeId = -1}) {
+    medianLocation = calculateCentroid(locationDataPoints.locations);
+    samples = locationDataPoints.length;
+
+    /// Find min/max time
+    arrival = DateTime.fromMillisecondsSinceEpoch(locationDataPoints
+        .map((d) => d.datetime.millisecondsSinceEpoch)
+        .reduce(min));
+    departure = DateTime.fromMillisecondsSinceEpoch(locationDataPoints
+        .map((d) => d.datetime.millisecondsSinceEpoch)
+        .reduce(max));
+  }
 
   Duration get duration => Duration(
       milliseconds:
@@ -56,11 +74,12 @@ class Stop {
 
   @override
   String toString() {
-    String placeString = placeId != null ? placeId.toString() : '<NO PLACE_ID>';
-    return 'Stop: ${location.toString()} [$arrival - $departure] ($duration) (samples: $samples) (PlaceId: $placeString)';
+    return 'Stop at place $placeId,  (${medianLocation.toString()}) [$arrival - $departure] ($duration) ';
   }
 }
 
+/// A [Place] is a cluster of [Stop]s found by the DBSCAN algorithm
+/// https://www.aaai.org/Papers/KDD/1996/KDD96-037.pdf
 class Place {
   int id;
   Location location;
@@ -70,10 +89,13 @@ class Place {
 
   @override
   String toString() {
-    return 'Place {$id}:  ${location.toString()} ($duration)';
+    return 'Place ID: $id, at ${location.toString()} ($duration)';
   }
 }
 
+/// A [Move] is a transfer from one [Stop] to another.
+/// A set of features can be derived from this such as the haversine distance between
+/// the stops, the duration of the move, and thereby also the average travel speed.
 class Move {
   DateTime departure, arrival;
   Location locationFrom, locationTo;

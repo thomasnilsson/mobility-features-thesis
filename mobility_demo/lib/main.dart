@@ -36,30 +36,44 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
-    locationStuff();
+    initLocation();
   }
 
-  void locationStuff() async {
+  void initLocation() async {
     FileUtil().flush();
-    await location.requestPermission().then((response) {
+    await location.hasPermission().then((response) {
       if (response) {
-        location.onLocationChanged().listen((LocationData d) async {
-          tracking = true;
-          print('-' * 50);
-          print(d.str);
-          _data.add(d);
-          await FileUtil().write([d]);
-        });
+        startStreaming();
       } else {
-        locationStuff();
+        askPermission();
       }
+    });
+  }
+
+  void askPermission() async {
+    await location.hasPermission().then((response) {
+      if (response) {
+        startStreaming();
+      } else {
+        print('Could not get location permission!');
+      }
+    });
+  }
+
+  void startStreaming() {
+    location.onLocationChanged().listen((LocationData d) async {
+      tracking = true;
+      print('-' * 50);
+      print(d.str);
+      _data.add(d);
+      await FileUtil().write([d]);
     });
   }
 
   void _pressed() async {
     String c = await FileUtil().read();
     setState(() {
-      print('*'*20 + 'FILE CONTENTS' + '*'*20);
+      print('*' * 20 + 'FILE CONTENTS' + '*' * 20);
       print(c);
     });
   }
@@ -69,7 +83,8 @@ class _MyHomePageState extends State<MyHomePage> {
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(
-          title: Text(tracking ? 'Mobility (Not tracking)' : 'Mobility (Tracking...)'),
+          title: Text(
+              tracking ? 'Mobility (Not tracking)' : 'Mobility (Tracking...)'),
           actions: <Widget>[
             IconButton(
               icon: Icon(Icons.location_on),

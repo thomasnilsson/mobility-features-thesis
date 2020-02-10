@@ -39,6 +39,19 @@ Iterable<int> range(int low, int high) sync* {
   }
 }
 
+/// Calculate centroid of a gps point cloud
+Location calculateCentroid(List<Location> data) {
+  double medianLat =
+      Stats.fromData(data.map((d) => (d.latitude)).toList()).median
+          as double;
+  double medianLon =
+      Stats.fromData(data.map((d) => (d.longitude)).toList()).median
+          as double;
+
+  return Location(medianLat, medianLon);
+}
+
+
 extension CompareDates on DateTime {
   bool geq(DateTime other) {
     return this.isAfter(other) || this.isAtSameMomentAs(other);
@@ -54,7 +67,6 @@ extension CompareDates on DateTime {
 }
 
 extension NumList<num> on List<num> {
-
   int get argmax {
     double maxVal = -double.infinity;
     int i = 0;
@@ -67,4 +79,8 @@ extension NumList<num> on List<num> {
     }
     return i;
   }
+}
+
+extension LocationList on List<LocationData> {
+  List<Location> get locations => this.map((LocationData d) => d.location).toList();
 }

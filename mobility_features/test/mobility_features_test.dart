@@ -26,24 +26,24 @@ void main() async {
     printList(p.dataGroupedByDates);
   });
 
-  test('Create stop row', () {
-    List<double> target = List<double>.filled(HOURS_IN_A_DAY, 0.0);
-    for (int i = 1; i <= 9; i++) target[i] = 1.0;
-
-    DateTime arrival = DateTime.parse('2019-11-11 01:00:00.000');
-    DateTime departure = DateTime.parse('2019-11-11 09:30:00.000');
-    Location loc = Location(55.6863790613, 12.5571557078);
-    int nSamples = 1000;
-
-    print('Stop and stop row:');
-    print('*' * 50);
-    Stop s = Stop(loc, arrival, departure, nSamples);
-    print(s);
-
-    StopHours sr = StopHours.fromStop(s);
-    print(sr.hourSlots);
-    assert(vectorsEqual(sr.hourSlots, target));
-  });
+//  test('Create stop row', () {
+//    List<double> target = List<double>.filled(HOURS_IN_A_DAY, 0.0);
+//    for (int i = 1; i <= 9; i++) target[i] = 1.0;
+//
+//    DateTime arrival = DateTime.parse('2019-11-11 01:00:00.000');
+//    DateTime departure = DateTime.parse('2019-11-11 09:30:00.000');
+//    Location loc = Location(55.6863790613, 12.5571557078);
+//    int nSamples = 1000;
+//
+//    print('Stop and stop row:');
+//    print('*' * 50);
+//    Stop s = Stop(loc, arrival, departure, nSamples);
+//    print(s);
+//
+//    StopHours sr = StopHours.fromStop(s);
+//    print(sr.hourSlots);
+//    assert(vectorsEqual(sr.hourSlots, target));
+//  });
 
   test('Run feature extraction', () async {
     DateTime date = DateTime(2019, 11, 11);
