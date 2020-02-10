@@ -90,7 +90,7 @@ class Place {
   }
 
   Duration get duration => stops.map((s) => s.duration).reduce((a, b) => a + b);
-  
+
   @override
   String toString() {
     return 'Place ID: $id, at ${location.toString()} ($duration)';
@@ -107,7 +107,7 @@ class Move {
 
   /// The haversine distance between the two places, in meters
   double get distance {
-    return HaversineDist.fromLocation(fromStop.location, toStop.location);
+    return Distance.fromLocation(fromStop.location, toStop.location);
   }
 
   /// The duration of the move in milliseconds

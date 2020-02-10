@@ -17,7 +17,7 @@ extension on double {
   double get radiansFromDegrees => this * (pi / 180.0);
 }
 
-class HaversineDist {
+class Distance {
   static double fromLocation(Location a, Location b) {
     return fromDouble([a.latitude, a.longitude], [b.latitude, b.longitude]);
   }
@@ -35,6 +35,10 @@ class HaversineDist {
             cos(lat1) * cos(lat2) * pow(sin(lon2 - lon1) / 2, 2)));
 
     return distance;
+  }
+
+  static bool isWithin(Location a, Location b, double d) {
+    return fromLocation(a, b) <= d;
   }
 }
 

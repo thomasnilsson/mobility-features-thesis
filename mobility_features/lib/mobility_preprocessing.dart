@@ -3,22 +3,16 @@ part of mobility_features_lib;
 /// Preprocessing for the Feature Extraction.
 /// Finds Stops, Places and Moves for a day of GPS data
 class Preprocessor {
-  double minStopDist = 25, minPlaceDist = 25, mergeDist = 5, minMoveDist = 50;
-  Duration minStopDuration = Duration(minutes: 15),
-      minMoveDuration = Duration(minutes: 5),
-      minMergeDuration = Duration(minutes: 5);
-  bool enableMerging = false;
+  double stopRadius, placeRadius, moveRadius = 50;
+  Duration stopDuration, moveDuration;
   List<LocationData> data;
 
   Preprocessor(this.data,
-      {this.minStopDist = 25,
-      this.minPlaceDist = 25,
-      this.minMoveDist = 50,
-      this.mergeDist = 5,
-      this.minStopDuration = const Duration(minutes: 15),
-      this.minMoveDuration = const Duration(minutes: 5),
-      this.minMergeDuration = const Duration(minutes: 5),
-      this.enableMerging = false});
+      {this.stopRadius = 25,
+      this.placeRadius = 25,
+      this.moveRadius = 50,
+      this.stopDuration = const Duration(minutes: 15),
+      this.moveDuration = const Duration(minutes: 5)});
 
   /// Extracts unique dates in the dataset.
   Set<DateTime> get uniqueDates {
@@ -51,39 +45,27 @@ class Preprocessor {
     return grouped;
   }
 
-  /// Checks if two points are within the minimum distance
-  bool _isWithinMinStopDist(Location a, Location b) {
-    double d = HaversineDist.fromLocation(a, b);
-    return d <= minStopDist;
-  }
-
   /// Find the stops in a sequence of gps data points
   List<Stop> _findStops(List<LocationData> data) {
     List<Stop> stops = [];
-    int i = 0;
-    int j;
-    int N = data.length;
-    List<LocationData> dataSubset;
-    Location centroid;
+    int n = data.length;
 
     /// Go through all the data points
     /// Each iteration looking at a subset of the data set
-    while (i < N) {
-      j = i + 1;
-      dataSubset = data.sublist(i, j);
-      centroid = calculateCentroid(dataSubset.locations);
+    for (int i = 0; i < n; i++) {
+      int j = i + 1;
+      List<LocationData> cluster = data.sublist(i, j);
+      Location centroid = calculateCentroid(cluster.locations);
 
-      /// Include a new data point until no longer within radius
-      /// to be considered at stop
-      /// or when all points have been taken
-      while (j < N && _isWithinMinStopDist(data[j].location, centroid)) {
+      /// Expand cluster until either all data points have been considered,
+      /// or the current data point lies outside the radius.
+      while (
+          j < n && Distance.isWithin(data[j].location, centroid, stopRadius)) {
         j += 1;
-        dataSubset = data.sublist(i, j);
-        centroid = calculateCentroid(dataSubset.locations);
+        cluster = data.sublist(i, j);
+        centroid = calculateCentroid(cluster.locations);
       }
-
-      Stop s = Stop(dataSubset);
-      stops.add(s);
+      stops.add(Stop(cluster));
 
       /// Update i, such that we no longer look at
       /// the previously considered data points
@@ -91,7 +73,7 @@ class Preprocessor {
     }
 
     /// Filter out stops which are shorter than the min. duration
-    stops = stops.where((s) => (s.duration >= minStopDuration)).toList();
+    stops = stops.where((s) => (s.duration >= stopDuration)).toList();
 
     return stops;
   }
@@ -101,9 +83,9 @@ class Preprocessor {
     List<Place> places = [];
 
     DBSCAN dbscan = DBSCAN(
-        epsilon: minPlaceDist,
+        epsilon: placeRadius,
         minPoints: 1,
-        distanceMeasure: HaversineDist.fromDouble);
+        distanceMeasure: Distance.fromDouble);
 
     /// Extract gps coordinates from stops
     List<List<double>> stopCoordinates = stops
@@ -125,17 +107,6 @@ class Preprocessor {
       /// For each index, get the corresponding stop
       List<Stop> stopsForPlace = indices.map((i) => (stops[i])).toList();
 
-//      /// Given all stops belonging to a place,
-//      /// calculate the centroid of the place
-//      List<Location> stopsLocations =
-//          stopsForPlace.map((x) => (x.location)).toList();
-//      Location centroid = calculateCentroid(stopsLocations);
-//
-//      /// Calculate the sum of the durations spent at the stops,
-//      /// belonging to the place
-//      Duration duration =
-//          stopsForPlace.map((s) => (s.duration)).reduce((a, b) => a + b);
-
       /// Add place to the list
       Place p = Place(label, stopsForPlace);
       places.add(p);
@@ -148,17 +119,16 @@ class Preprocessor {
 
   List<Move> _findMoves(List<LocationData> data, List<Stop> stops) {
     List<Move> moves = [];
-    List<Stop> fromStops =
-        stops.sublist(0, stops.length - 1); // All except last
-    List<Stop> toStops = stops.sublist(1); // All except first
 
-    /// Zip the stops and creates moves
-    for (int i = 0; i < fromStops.length; i++) {
-      Move m = Move(fromStops[i], toStops[i]);
+    /// Create moves from stops
+    List<Stop> from = stops.sublist(0, stops.length - 1); // All except last
+    List<Stop> to = stops.sublist(1); // All except first
+    for (int i = 0; i < from.length; i++) {
+      Move m = Move(from[i], to[i]);
       moves.add(m);
     }
 
     /// Filter out moves based on the minimum duration
-    return moves.where((m) => m.duration >= minMoveDuration).toList();
+    return moves.where((m) => m.duration >= moveDuration).toList();
   }
 }

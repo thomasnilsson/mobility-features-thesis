@@ -13,14 +13,14 @@ void main() async {
   });
 
   test('Get unique dates', () async {
-    final p = Preprocessor(data, minMoveDuration: Duration(minutes: 3));
+    final p = Preprocessor(data, moveDuration: Duration(minutes: 3));
     print('Unique Dates:');
     print('*' * 50);
     printList(p.uniqueDates.toList());
   });
 
   test('Group data by date', () async {
-    final p = Preprocessor(data, minMoveDuration: Duration(minutes: 3));
+    final p = Preprocessor(data, moveDuration: Duration(minutes: 3));
     print('Data Grouped by dates:');
     print('*' * 50);
     printList(p.dataGroupedByDates);
@@ -47,7 +47,7 @@ void main() async {
 
   test('Run feature extraction', () async {
     DateTime date = DateTime(2019, 11, 11);
-    Preprocessor p = Preprocessor(data, minMoveDuration: Duration(minutes: 3));
+    Preprocessor p = Preprocessor(data, moveDuration: Duration(minutes: 3));
     Features f = p.featuresByDate(date);
 
     print('Stops found:');
