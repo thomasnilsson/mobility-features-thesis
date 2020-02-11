@@ -3,7 +3,7 @@ import 'package:mobility_features/mobility_features_lib.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() async {
-  List<LocationData> data = await Dataset().multiDateData;
+  List<SingleLocationPoint> data = await Dataset().multiDateData;
   printList(data.sublist(0, 10));
 
   test('Datetime extension', () async {

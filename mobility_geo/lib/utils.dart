@@ -14,11 +14,6 @@ class FileUtil {
     return File(fileName);
   }
 
-  Future<File> flush() async {
-    File file = await _file;
-    return file.writeAsString('', mode: FileMode.write);
-  }
-
   Future<File> write(Position d) async {
     File file = await _file;
     // Write the file.

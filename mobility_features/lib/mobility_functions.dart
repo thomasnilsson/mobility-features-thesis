@@ -87,7 +87,7 @@ extension NumList<num> on List<num> {
   }
 }
 
-extension LocationList on List<LocationData> {
+extension LocationList on List<SingleLocationPoint> {
   List<Location> get locations =>
-      this.map((LocationData d) => d.location).toList();
+      this.map((SingleLocationPoint d) => d.location).toList();
 }

@@ -5,7 +5,7 @@ part of mobility_features_lib;
 class Preprocessor {
   double stopRadius, placeRadius, moveRadius = 50;
   Duration stopDuration, moveDuration;
-  List<LocationData> data;
+  List<SingleLocationPoint> data;
 
   Preprocessor(this.data,
       {this.stopRadius = 25,
@@ -23,7 +23,7 @@ class Preprocessor {
   Features featuresByDate(DateTime date) {
     List<Stop> stops = [];
 
-    for (List<LocationData> d in dataGroupedByDates) {
+    for (List<SingleLocationPoint> d in dataGroupedByDates) {
       List<Stop> s = _findStops(d);
       stops.addAll(s);
     }
@@ -36,8 +36,8 @@ class Preprocessor {
 
   /// Groups the dataset by dates.
   /// This is necessary since data is processed on a daily basis.
-  List<List<LocationData>> get dataGroupedByDates {
-    List<List<LocationData>> grouped = [];
+  List<List<SingleLocationPoint>> get dataGroupedByDates {
+    List<List<SingleLocationPoint>> grouped = [];
 
     for (DateTime _date in uniqueDates) {
       grouped.add(data.where((d) => (d.datetime.date == _date)).toList());
@@ -46,7 +46,7 @@ class Preprocessor {
   }
 
   /// Find the stops in a sequence of gps data points
-  List<Stop> _findStops(List<LocationData> data) {
+  List<Stop> _findStops(List<SingleLocationPoint> data) {
     List<Stop> stops = [];
     int n = data.length;
 
@@ -54,7 +54,7 @@ class Preprocessor {
     /// Each iteration looking at a subset of the data set
     for (int i = 0; i < n; i++) {
       int j = i + 1;
-      List<LocationData> cluster = data.sublist(i, j);
+      List<SingleLocationPoint> cluster = data.sublist(i, j);
       Location centroid = calculateCentroid(cluster.locations);
 
       /// Expand cluster until either all data points have been considered,
@@ -117,15 +117,20 @@ class Preprocessor {
     return places;
   }
 
-  List<Move> _findMoves(List<LocationData> data, List<Stop> stops) {
+
+  List<Move> _findMoves(List<SingleLocationPoint> data, List<Stop> stops) {
     List<Move> moves = [];
 
     /// Create moves from stops
-    List<Stop> from = stops.sublist(0, stops.length - 1); // All except last
-    List<Stop> to = stops.sublist(1); // All except first
-    for (int i = 0; i < from.length; i++) {
-      Move m = Move(from[i], to[i]);
-      moves.add(m);
+    for (int i = 0; i < stops.length - 1; i++) {
+      Stop cur = stops[i];
+      Stop next = stops[i + 1];
+
+      /// Extract all points (including the 'loose' points) between the two stops
+      List<SingleLocationPoint> pointsInBetween = data.where(
+          (d) => cur.departure.leq(d.datetime) && d.datetime.leq(next.arrival)).toList();
+
+      moves.add(Move(cur, next, pointsInBetween));
     }
 
     /// Filter out moves based on the minimum duration

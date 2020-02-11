@@ -60,6 +60,9 @@ class _MyHomePageState extends State<MyHomePage> {
   void _pressed() async {
     String c = await FileUtil().read();
     _contents = c.split('\n');
+    for (var x in _contents) {
+      print(x);
+    }
 
     setState(() => print('Refreshed UI'));
   }

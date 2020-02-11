@@ -3,7 +3,7 @@ part of mobility_features_lib;
 const int HOURS_IN_A_DAY = 24;
 
 class Features {
-  List<LocationData> data;
+  List<SingleLocationPoint> data;
   List<Stop> stops;
   List<Place> places;
   List<Move> moves;
