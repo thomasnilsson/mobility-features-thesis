@@ -7,7 +7,7 @@ class FileUtil {
     return directory.path;
   }
 
-  Future<File> get _file async {
+  Future<File> get locationDataFile async {
     final path = await _localPath;
     String time = DateTime.now().toString();
     String fileName = '$path/location_data.json';
@@ -21,12 +21,11 @@ class FileUtil {
   }
 
   Future<File> write(Map<String, String> d, int counter) async {
-    File contentsFile = await _file;
+    File contentsFile = await locationDataFile;
     File counterFile = await _counterFile;
     // Write the file.
     contentsFile.writeAsString('${json.encode(d)}\n', mode: FileMode.append);
     counterFile.writeAsString('$counter');
-    print('wrote contents to file');
     return contentsFile;
   }
 
@@ -48,12 +47,12 @@ class FileUtil {
 
   Future<List<String>> read() async {
     try {
-      final file = await _file;
+      final file = await locationDataFile;
 
       // Read the file.
       String contents = await file.readAsString();
-
-      return contents.split('\n');
+      List<String> tokens = contents.split('\n');
+      return tokens.sublist(0, tokens.length - 1);
     } catch (e) {
       // If encountering an error, return 0.
       return [];
