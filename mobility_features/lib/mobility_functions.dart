@@ -19,7 +19,7 @@ extension on double {
 
 class Distance {
   static double fromLocation(Location a, Location b) {
-    return fromDouble([a.latitude, a.longitude], [b.latitude, b.longitude]);
+    return fromDouble([a._latitude, a._longitude], [b._latitude, b._longitude]);
   }
 
   static double fromDouble(List<double> point1, List<double> point2) {
@@ -51,9 +51,9 @@ Iterable<int> range(int low, int high) sync* {
 /// Calculate centroid of a gps point cloud
 Location calculateCentroid(List<Location> data) {
   double medianLat =
-      Stats.fromData(data.map((d) => (d.latitude)).toList()).median as double;
+      Stats.fromData(data.map((d) => (d._latitude)).toList()).median as double;
   double medianLon =
-      Stats.fromData(data.map((d) => (d.longitude)).toList()).median as double;
+      Stats.fromData(data.map((d) => (d._longitude)).toList()).median as double;
 
   return Location(medianLat, medianLon);
 }
@@ -89,5 +89,5 @@ extension NumList<num> on List<num> {
 
 extension LocationList on List<SingleLocationPoint> {
   List<Location> get locations =>
-      this.map((SingleLocationPoint d) => d.location).toList();
+      this.map((SingleLocationPoint d) => d._location).toList();
 }

@@ -3,10 +3,10 @@ part of mobility_features_lib;
 /// A [Location] object contains a latitude and longitude
 /// and represents a 2D spatial coordinates
 class Location {
-  double longitude;
-  double latitude;
+  double _latitude;
+  double _longitude;
 
-  Location(this.latitude, this.longitude);
+  Location(this._latitude, this._longitude);
 
   factory Location.fromJson(Map<String, dynamic> x) {
     num lat = x['latitude'] as double;
@@ -14,20 +14,24 @@ class Location {
     return Location(lat, lon);
   }
 
+  double get latitude => _latitude;
+
+  double get longitude => _longitude;
+
   @override
   String toString() {
-    return 'Location: ($latitude, $longitude)';
+    return 'Location: ($_latitude, $_longitude)';
   }
 }
 
 /// A [SingleLocationPoint] holds a 2D [Location] spatial data point
 /// as well as a [DateTime] value s.t. it may be temporally ordered
 class SingleLocationPoint {
-  Location location;
+  Location _location;
+  DateTime _datetime;
   double speed = 0;
-  DateTime datetime;
 
-  SingleLocationPoint(this.location, this.datetime, {this.speed});
+  SingleLocationPoint(this._location, this._datetime, {this.speed});
 
   factory SingleLocationPoint.fromJson(Map<String, dynamic> x) {
     num lat = x['latitude'] as double;
@@ -38,9 +42,13 @@ class SingleLocationPoint {
     return SingleLocationPoint(Location(lat, lon), _datetime);
   }
 
+  Location get location => _location;
+
+  DateTime get datetime => _datetime;
+
   @override
   String toString() {
-    return '$location [$datetime]';
+    return '$_location [$_datetime]';
   }
 }
 
@@ -50,23 +58,25 @@ class SingleLocationPoint {
 /// At initialization a stop will be assigned to the 'Noise' place (with id -1),
 /// and only after all places have been identified will a [Place] be assigned.
 class Stop {
-  List<SingleLocationPoint> locationDataPoints;
-  Location location;
-  int placeId, samples;
+  List<SingleLocationPoint> points;
+  Location _centroid;
+  int placeId, _samples;
   DateTime arrival, departure;
 
-  Stop(this.locationDataPoints, {this.placeId = -1}) {
-    location = calculateCentroid(locationDataPoints.locations);
-    samples = locationDataPoints.length;
+  Stop(this.points, {this.placeId = -1}) {
+    _centroid = calculateCentroid(points.locations);
+    _samples = points.length;
 
     /// Find min/max time
-    arrival = DateTime.fromMillisecondsSinceEpoch(locationDataPoints
-        .map((d) => d.datetime.millisecondsSinceEpoch)
-        .reduce(min));
-    departure = DateTime.fromMillisecondsSinceEpoch(locationDataPoints
-        .map((d) => d.datetime.millisecondsSinceEpoch)
-        .reduce(max));
+    arrival = DateTime.fromMillisecondsSinceEpoch(
+        points.map((d) => d._datetime.millisecondsSinceEpoch).reduce(min));
+    departure = DateTime.fromMillisecondsSinceEpoch(
+        points.map((d) => d._datetime.millisecondsSinceEpoch).reduce(max));
   }
+
+  Location get centroid => _centroid;
+
+  int get samples => _samples;
 
   Duration get duration => Duration(
       milliseconds:
@@ -74,26 +84,31 @@ class Stop {
 
   @override
   String toString() {
-    return 'Stop at place $placeId,  (${location.toString()}) [$arrival - $departure] ($duration) ';
+    return 'Stop at place $placeId,  (${_centroid.toString()}) [$arrival - $departure] ($duration) ';
   }
 }
 
 /// A [Place] is a cluster of [Stop]s found by the DBSCAN algorithm
 /// https://www.aaai.org/Papers/KDD/1996/KDD96-037.pdf
 class Place {
-  int id;
-  List<Stop> stops;
-  Location location;
+  int _id;
+  List<Stop> _stops;
+  Location _centroid;
 
-  Place(this.id, this.stops) {
-    location = calculateCentroid(stops.map((s) => s.location).toList());
+  Place(this._id, this._stops) {
+    _centroid = calculateCentroid(_stops.map((s) => s._centroid).toList());
   }
 
-  Duration get duration => stops.map((s) => s.duration).reduce((a, b) => a + b);
+  Duration get duration =>
+      _stops.map((s) => s.duration).reduce((a, b) => a + b);
+
+  Location get centroid => _centroid;
+
+  int get id => _id;
 
   @override
   String toString() {
-    return 'Place ID: $id, at ${location.toString()} ($duration)';
+    return 'Place ID: $_id, at ${_centroid.toString()} ($duration)';
   }
 }
 
@@ -101,57 +116,35 @@ class Place {
 /// A set of features can be derived from this such as the haversine distance between
 /// the stops, the duration of the move, and thereby also the average travel speed.
 class Move {
-  Stop fromStop, toStop;
-  List<SingleLocationPoint> points;
+  Stop _stopFrom, _stopTo;
+  List<SingleLocationPoint> _pointChain;
 
-  Move(this.fromStop, this.toStop, this.points);
+  Move(this._stopFrom, this._stopTo, this._pointChain);
 
   /// The haversine distance through all the points between the two stops
   double get distance {
     double d = 0.0;
-    for (int i = 0; i < points.length - 1; i++) {
-      d += Distance.fromLocation(points[i].location, points[i + 1].location);
+    for (int i = 0; i < _pointChain.length - 1; i++) {
+      d +=
+          Distance.fromLocation(_pointChain[i]._location, _pointChain[i + 1]._location);
     }
     return d;
   }
 
   /// The duration of the move in milliseconds
   Duration get duration => Duration(
-      milliseconds: toStop.arrival.millisecondsSinceEpoch -
-          fromStop.departure.millisecondsSinceEpoch);
+      milliseconds: _stopTo.arrival.millisecondsSinceEpoch -
+          _stopFrom.departure.millisecondsSinceEpoch);
 
   /// The average speed when moving between the two places (m/s)
   double get meanSpeed => distance / duration.inSeconds.toDouble();
 
+  int get placeFrom => _stopFrom.placeId;
+
+  int get placeTo => _stopTo.placeId;
+
   @override
   String toString() {
-    return 'Move: ${fromStop.location} --> ${toStop.location}, (Place ${fromStop.placeId} --> ${toStop.placeId}) (Time: $duration) (Points: ${points.length})';
+    return 'Move: ${_stopFrom._centroid} --> ${_stopTo._centroid}, (Place ${_stopFrom.placeId} --> ${_stopTo.placeId}) (Time: $duration) (Points: ${_pointChain.length})';
   }
 }
-
-/// A [Move] is a transfer from one [Stop] to another.
-/// A set of features can be derived from this such as the haversine distance between
-/// the stops, the duration of the move, and thereby also the average travel speed.
-//class Move {
-//  Stop fromStop, toStop;
-//
-//  Move(this.fromStop, this.toStop);
-//
-//  /// The haversine distance between the two places, in meters
-//  double get distance {
-//    return Distance.fromLocation(fromStop.location, toStop.location);
-//  }
-//
-//  /// The duration of the move in milliseconds
-//  Duration get duration => Duration(
-//      milliseconds: toStop.arrival.millisecondsSinceEpoch -
-//          fromStop.departure.millisecondsSinceEpoch);
-//
-//  /// The average speed when moving between the two places (m/s)
-//  double get meanSpeed => distance / duration.inSeconds.toDouble();
-//
-//  @override
-//  String toString() {
-//    return 'Move: ${fromStop.location} --> ${toStop.location}, (Place ${fromStop.placeId} --> ${toStop.placeId}) ($duration)';
-//  }
-//}

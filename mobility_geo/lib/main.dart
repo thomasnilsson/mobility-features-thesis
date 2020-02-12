@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'mobility.dart';
+import 'package:firebase_database/firebase_database.dart';
+
 
 void main() => runApp(MyApp());
 
@@ -31,11 +33,20 @@ class _MyHomePageState extends State<MyHomePage> {
   Geolocator geo = Geolocator();
   bool tracking = false;
   List<String> _contents = [];
+  int transferredIdx = 0; // keep track of which data to send to database
+  final databaseReference = FirebaseDatabase.instance.reference();
 
   @override
   void initState() {
     super.initState();
     initLocation();
+    initCounter();
+  }
+
+  void initCounter() async {
+    transferredIdx = await FileUtil().readCounter();
+    transferredIdx = transferredIdx >= 0 ? transferredIdx : 0;
+    print('Transfer idx read: $transferredIdx');
   }
 
   void initLocation() async {
@@ -52,19 +63,47 @@ class _MyHomePageState extends State<MyHomePage> {
     geo.getPositionStream().listen((Position d) async {
       tracking = true;
       print('-' * 50);
-      print(d.str);
-      await FileUtil().write(d);
+      Map<String, String> x = {
+        'lat': d.latitude.toString(),
+        'lon': d.longitude.toString(),
+        'datetime': d.timestamp.millisecondsSinceEpoch.toString()
+      };
+      print(x);
+      await FileUtil().write(x, transferredIdx);
     });
   }
 
   void _pressed() async {
     String c = await FileUtil().read();
     _contents = c.split('\n');
-    for (var x in _contents) {
-      print(x);
+
+    int before = transferredIdx + 0;
+
+    for (var str in _contents.sublist(transferredIdx)) {
+      print(str);
+      if (str != '') {
+        Map<String, String> x = Map<String, String>.from(json.decode(str));
+        createRecord(x);
+      }
+      transferredIdx++;
     }
 
+    print(
+        'Created ${transferredIdx - before} transactitons. Now at $transferredIdx.');
     setState(() => print('Refreshed UI'));
+  }
+
+  void getData() {
+    databaseReference.once().then((DataSnapshot snapshot) {
+      print('Data : ${snapshot.value}');
+    });
+  }
+
+  void createRecord(Map<String, String> obj) {
+    databaseReference.child(obj['datetime']).set({
+      'lat': obj['lat'],
+      'lon': obj['lon'],
+    });
   }
 
   @override

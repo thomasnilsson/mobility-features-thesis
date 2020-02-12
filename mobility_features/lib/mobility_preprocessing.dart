@@ -16,7 +16,7 @@ class Preprocessor {
 
   /// Extracts unique dates in the dataset.
   Set<DateTime> get uniqueDates {
-    Set<DateTime> uniqueDates = data.map((d) => (d.datetime.date)).toSet();
+    Set<DateTime> uniqueDates = data.map((d) => (d._datetime.date)).toSet();
     return uniqueDates;
   }
 
@@ -40,7 +40,7 @@ class Preprocessor {
     List<List<SingleLocationPoint>> grouped = [];
 
     for (DateTime _date in uniqueDates) {
-      grouped.add(data.where((d) => (d.datetime.date == _date)).toList());
+      grouped.add(data.where((d) => (d._datetime.date == _date)).toList());
     }
     return grouped;
   }
@@ -60,7 +60,7 @@ class Preprocessor {
       /// Expand cluster until either all data points have been considered,
       /// or the current data point lies outside the radius.
       while (
-          j < n && Distance.isWithin(data[j].location, centroid, stopRadius)) {
+          j < n && Distance.isWithin(data[j]._location, centroid, stopRadius)) {
         j += 1;
         cluster = data.sublist(i, j);
         centroid = calculateCentroid(cluster.locations);
@@ -89,7 +89,7 @@ class Preprocessor {
 
     /// Extract gps coordinates from stops
     List<List<double>> stopCoordinates = stops
-        .map((s) => ([s.location.latitude, s.location.longitude]))
+        .map((s) => ([s._centroid._latitude, s._centroid._longitude]))
         .toList();
 
     /// Run DBSCAN on data points
@@ -112,7 +112,7 @@ class Preprocessor {
       places.add(p);
 
       /// Set placeId field for the stops belonging to this place
-      stopsForPlace.forEach((s) => s.placeId = p.id);
+      stopsForPlace.forEach((s) => s.placeId = p._id);
     }
     return places;
   }
@@ -128,7 +128,7 @@ class Preprocessor {
 
       /// Extract all points (including the 'loose' points) between the two stops
       List<SingleLocationPoint> pointsInBetween = data.where(
-          (d) => cur.departure.leq(d.datetime) && d.datetime.leq(next.arrival)).toList();
+          (d) => cur.departure.leq(d._datetime) && d._datetime.leq(next.arrival)).toList();
 
       moves.add(Move(cur, next, pointsInBetween));
     }

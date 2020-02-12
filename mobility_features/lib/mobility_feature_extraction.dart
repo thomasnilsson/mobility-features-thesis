@@ -16,9 +16,9 @@ class Features {
 
   /// Location variance
   double get locationVariance {
-    double latStd = Stats.fromData(data.map((d) => (d.location.latitude)))
+    double latStd = Stats.fromData(data.map((d) => (d._location._latitude)))
         .standardDeviation;
-    double lonStd = Stats.fromData(data.map((d) => (d.location.longitude)))
+    double lonStd = Stats.fromData(data.map((d) => (d._location._longitude)))
         .standardDeviation;
     double locVar = log(latStd * latStd + lonStd * lonStd + 1);
     return data.length >= 2 ? locVar : 0.0;
@@ -99,7 +99,7 @@ class Features {
         .reduce((a, b) => a + b)
         .toDouble();
     double timeSpentAtHome = places
-        .where((p) => p.id == homeIndex)
+        .where((p) => p._id == homeIndex)
         .first
         .duration
         .inMilliseconds
