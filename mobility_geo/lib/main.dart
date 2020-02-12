@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'mobility.dart';
 import 'package:firebase_database/firebase_database.dart';
 
-
 void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
@@ -73,14 +72,12 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  void _pressed() async {
-    String c = await FileUtil().read();
-    _contents = c.split('\n');
+  void _pressedSend() async {
+    _contents = await FileUtil().read();
 
     int before = transferredIdx + 0;
 
     for (var str in _contents.sublist(transferredIdx)) {
-      print(str);
       if (str != '') {
         Map<String, String> x = Map<String, String>.from(json.decode(str));
         createRecord(x);
@@ -90,7 +87,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
     print(
         'Created ${transferredIdx - before} transactitons. Now at $transferredIdx.');
-    setState(() => print('Refreshed UI'));
   }
 
   void getData() {
@@ -106,6 +102,14 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  void _pressedPrint() async {
+    _contents = await FileUtil().read();
+    for (var str in _contents) {
+      print(str);
+    }
+    setState(() => print('Refreshed UI'));
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -115,8 +119,12 @@ class _MyHomePageState extends State<MyHomePage> {
               tracking ? 'Mobility (Not tracking)' : 'Mobility (Tracking...)'),
           actions: <Widget>[
             IconButton(
-              icon: Icon(Icons.refresh),
-              onPressed: _pressed,
+              icon: Icon(Icons.send),
+              onPressed: _pressedSend,
+            ),
+            IconButton(
+              icon: Icon(Icons.print),
+              onPressed: _pressedPrint,
             )
           ],
         ),

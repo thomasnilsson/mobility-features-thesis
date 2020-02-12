@@ -46,17 +46,17 @@ class FileUtil {
   }
 
 
-  Future<String> read() async {
+  Future<List<String>> read() async {
     try {
       final file = await _file;
 
       // Read the file.
       String contents = await file.readAsString();
 
-      return contents;
+      return contents.split('\n');
     } catch (e) {
       // If encountering an error, return 0.
-      return '<empty>';
+      return [];
     }
   }
 }
