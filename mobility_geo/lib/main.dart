@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'mobility.dart';
-import 'package:firebase_database/firebase_database.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 
 void main() => runApp(MyApp());
+
 
 class MyApp extends StatelessWidget {
   // This widget is the root of your application.
@@ -32,21 +31,16 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   Geolocator geo = Geolocator();
   bool tracking = false;
-  List<String> _contents = [];
-  int transferredIdx = 0; // keep track of which data to send to database
+  List<Map<String, String>> _dataPointsJson = [];
+  List<String> content = [];
   final databaseReference = FirebaseDatabase.instance.reference();
+  bool showGpsData = true;
+
 
   @override
   void initState() {
     super.initState();
     initLocation();
-    initCounter();
-  }
-
-  void initCounter() async {
-    transferredIdx = await FileUtil().readCounter();
-    transferredIdx = transferredIdx >= 0 ? transferredIdx : 0;
-    print('Transfer index read: $transferredIdx');
   }
 
   void initLocation() async {
@@ -69,47 +63,22 @@ class _MyHomePageState extends State<MyHomePage> {
         'datetime': d.timestamp.millisecondsSinceEpoch.toString()
       };
       print(x);
-      await FileUtil().write(x, transferredIdx);
-    });
-  }
-
-  void _pressedSend() async {
-    _contents = await FileUtil().read();
-
-    int before = transferredIdx + 0;
-
-    for (var str in _contents.sublist(transferredIdx)) {
-      if (str != '') {
-        Map<String, String> x = Map<String, String>.from(json.decode(str));
-        createRecord(x);
-      }
-      transferredIdx++;
-    }
-
-    print("${'-' * 15} FIREBASE WRITE ${'-' * 15}");
-    print(
-        'Created ${transferredIdx - before} transactitons. Now at $transferredIdx.');
-  }
-
-  void getData() {
-    databaseReference.once().then((DataSnapshot snapshot) {
-      print('Data : ${snapshot.value}');
-    });
-  }
-
-  void createRecord(Map<String, String> obj) {
-    databaseReference.child(obj['datetime']).set({
-      'lat': obj['lat'],
-      'lon': obj['lon'],
+      FileUtil().write(x);
     });
   }
 
   void _pressedPrint() async {
-    _contents = await FileUtil().read();
-    for (var str in _contents) {
-      print(str);
-    }
-    setState(() => print('Refreshed UI'));
+    await FileUtil().read().then((List<Map<String, String>> c) {
+      showGpsData = true;
+      print(c);
+      _dataPointsJson = c;
+      content = [];
+      for (Map<String, String> m in _dataPointsJson) {
+        print(m);
+        content.add(m.toString());
+      }
+      setState(() => print('Refreshed UI'));
+    });
   }
 
   void _pressedFileUpload() async {
@@ -117,7 +86,7 @@ class _MyHomePageState extends State<MyHomePage> {
     String date = '${now.year}-${now.month}-${now.day}';
     await FileUtil().locationDataFile.then((File f) async {
       final StorageReference firebaseStorageRef =
-      FirebaseStorage.instance.ref().child('data-$date.json');
+          FirebaseStorage.instance.ref().child('data-$date.json');
       final StorageUploadTask uploadTask = firebaseStorageRef.putFile(f);
       final StorageTaskSnapshot downloadUrl = await uploadTask.onComplete;
       final String url = await downloadUrl.ref.getDownloadURL();
@@ -125,18 +94,51 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  Map<String, String> decode(String s) =>
-      Map<String, String>.from(json.decode(s));
+  void _pressedCalculate() {
+    showGpsData = false;
+    List<SingleLocationPoint> dataset = [];
+    for (Map<String, String> m in _dataPointsJson) {
+      SingleLocationPoint d = SingleLocationPoint.fromJson(m);
+      dataset.add(d);
+    }
+
+    Preprocessor p = Preprocessor(dataset);
+    DateTime date = DateTime.now(); //DateTime(2020, 02, 12);
+    Features f = p.featuresByDate(date);
+
+    content = [];
+
+    for (var x in f.stops) {
+      content.add(x.toString());
+    }
+    for (var x in f.places) {
+      content.add(x.toString());
+    }
+    for (var x in f.moves) {
+      content.add(x.toString());
+    }
+
+    content.add('homeStay: ${f.homeStay}');
+    content.add('locationVariance: ${f.locationVariance}');
+    content.add('totalDistance: ${f.totalDistance}');
+    content.add('numberOfClusters: ${f.numberOfClusters}');
+    content.add('normalizedEntropy: ${f.normalizedEntropy}');
+
+    for (var x in content) print(x);
+    setState(() => print('Refreshed UI'));
+
+  }
 
   String parseRow(int index) {
-    String s = _contents.reversed.toList()[index];
-    String txt = '<Parsing Error>';
-    if (s != '') {
-      Map<String, String> m = decode(s);
-      String time =
-          DateTime.fromMillisecondsSinceEpoch(int.parse(m['datetime']))
-              .toIso8601String();
-      txt = "$time: ${m['lat']}, ${m['lon']}";
+    String txt = content[index];
+    if (showGpsData) {
+      Map<String, String> m = _dataPointsJson.reversed.toList()[index];
+      if (m.isNotEmpty) {
+        String time =
+        DateTime.fromMillisecondsSinceEpoch(int.parse(m['datetime']))
+            .toIso8601String();
+        txt = "$time: ${m['lat']}, ${m['lon']}";
+      }
     }
     return txt;
   }
@@ -149,23 +151,23 @@ class _MyHomePageState extends State<MyHomePage> {
         title: Text('GeoTracker'),
         actions: <Widget>[
           IconButton(
-            icon: Icon(Icons.send),
-            onPressed: _pressedSend,
-          ),
-          IconButton(
             icon: Icon(Icons.print),
             onPressed: _pressedPrint,
           ),
           IconButton(
             icon: Icon(Icons.cloud_upload),
             onPressed: _pressedFileUpload,
+          ),
+          IconButton(
+            icon: Icon(Icons.my_location),
+            onPressed: _pressedCalculate,
           )
         ],
       ),
-      body: _contents.isEmpty
+      body: content.isEmpty
           ? Text('No data yet 😭')
           : ListView.builder(
-              itemCount: _contents.length,
+              itemCount: content.length,
               itemBuilder: (_, index) => ListTile(
                 title: Text(parseRow(index)),
               ),

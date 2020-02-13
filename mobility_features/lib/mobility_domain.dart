@@ -34,9 +34,9 @@ class SingleLocationPoint {
   SingleLocationPoint(this._location, this._datetime, {this.speed});
 
   factory SingleLocationPoint.fromJson(Map<String, dynamic> x) {
-    num lat = x['latitude'] as double;
-    num lon = x['longitude'] as double;
-    int time = x['datetime'];
+    num lat = double.parse(x['lat']);
+    num lon = double.parse(x['lon']);
+    int time = int.parse(x['datetime']);
     DateTime _datetime = DateTime.fromMillisecondsSinceEpoch(time);
     _datetime = _datetime.subtract(Duration(hours: 1));
     return SingleLocationPoint(Location(lat, lon), _datetime);
@@ -78,13 +78,15 @@ class Stop {
 
   int get samples => _samples;
 
-  Duration get duration => Duration(
-      milliseconds:
+  Duration get duration =>
+      Duration(
+          milliseconds:
           departure.millisecondsSinceEpoch - arrival.millisecondsSinceEpoch);
 
   @override
   String toString() {
-    return 'Stop at place $placeId,  (${_centroid.toString()}) [$arrival - $departure] ($duration) ';
+    return 'Stop at place $placeId,  (${_centroid
+        .toString()}) [$arrival - $departure] ($duration) ';
   }
 }
 
@@ -126,15 +128,17 @@ class Move {
     double d = 0.0;
     for (int i = 0; i < _pointChain.length - 1; i++) {
       d +=
-          Distance.fromLocation(_pointChain[i]._location, _pointChain[i + 1]._location);
+          Distance.fromLocation(
+              _pointChain[i]._location, _pointChain[i + 1]._location);
     }
     return d;
   }
 
   /// The duration of the move in milliseconds
-  Duration get duration => Duration(
-      milliseconds: _stopTo.arrival.millisecondsSinceEpoch -
-          _stopFrom.departure.millisecondsSinceEpoch);
+  Duration get duration =>
+      Duration(
+          milliseconds: _stopTo.arrival.millisecondsSinceEpoch -
+              _stopFrom.departure.millisecondsSinceEpoch);
 
   /// The average speed when moving between the two places (m/s)
   double get meanSpeed => distance / duration.inSeconds.toDouble();
@@ -145,6 +149,8 @@ class Move {
 
   @override
   String toString() {
-    return 'Move: ${_stopFrom._centroid} --> ${_stopTo._centroid}, (Place ${_stopFrom.placeId} --> ${_stopTo.placeId}) (Time: $duration) (Points: ${_pointChain.length})';
+    return 'Move: ${_stopFrom._centroid} --> ${_stopTo
+        ._centroid}, (Place ${_stopFrom.placeId} --> ${_stopTo
+        .placeId}) (Time: $duration) (Points: ${_pointChain.length})';
   }
 }

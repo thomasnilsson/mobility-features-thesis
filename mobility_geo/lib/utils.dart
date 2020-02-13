@@ -14,52 +14,37 @@ class FileUtil {
     return File(fileName);
   }
 
-  Future<File> get _counterFile async {
-    final path = await _localPath;
-    String transferredFile = '$path/counter_file.txt';
-    return File(transferredFile);
-  }
-
-  Future<File> write(Map<String, String> d, int counter) async {
+  Future<File> write(Map<String, String> d) async {
     File contentsFile = await locationDataFile;
-    File counterFile = await _counterFile;
     // Write the file.
     contentsFile.writeAsString('${json.encode(d)}\n', mode: FileMode.append);
-    counterFile.writeAsString('$counter');
     return contentsFile;
   }
 
-  Future<int> readCounter() async {
+  Map<String, String> decode(String s) {
     try {
-      final file = await _counterFile;
-
-      // Read the file.
-      String contents = await file.readAsString();
-      int counter = int.parse(contents);
-      return counter;
-
+      Map<String, String> res = Map<String, String>.from(json.decode(s));
+      return res;
     } catch (e) {
-      // If encountering an error, return 0.
-      return 0;
+      return {};
     }
   }
 
+  Future<List<Map<String, String>>> read() async {
+    List<Map<String, String>> maps = [];
+    final file = await locationDataFile;
 
-  Future<List<String>> read() async {
-    try {
-      final file = await locationDataFile;
-
-      // Read the file.
-      String contents = await file.readAsString();
+    await file.readAsString().then((String contents) {
       List<String> tokens = contents.split('\n');
-      return tokens.sublist(0, tokens.length - 1);
-    } catch (e) {
-      // If encountering an error, return 0.
-      return [];
-    }
-  }
-}
+      print('Tokens length: ${tokens.length}');
 
-extension BetterLocationData on Position {
-  String get str => '(${this.toString()}} - ${this.timestamp})';
+      for (String x in tokens) {
+        Map<String, String> m = decode(x);
+        if (m.isNotEmpty) maps.add(m);
+      }
+
+      print('Maps length: ${maps.length}');
+    });
+    return maps;
+  }
 }
