@@ -50,7 +50,7 @@ class Features {
   /// Entropy calculates how dispersed time is between places
   double get entropy {
     List<Duration> durations = places.map((p) => (p.duration)).toList();
-    Duration sum = durations.reduce((a, b) => (a + b));
+    Duration sum = durations.fold(Duration(), (a, b) => (a + b));
     List<double> distribution = durations
         .map((d) =>
             (d.inMilliseconds.toDouble() / sum.inMilliseconds.toDouble()))
@@ -65,12 +65,12 @@ class Features {
         .where((dur) => dur.inMilliseconds > 0) // avoid log(0) error later
         .toList();
 
-    Duration sum = durations.reduce((a, b) => (a + b));
+    Duration sum = durations.fold(Duration(), (a, b) => (a + b));
     List<double> distribution = durations
         .map((d) =>
             (d.inMilliseconds.toDouble() / sum.inMilliseconds.toDouble()))
         .toList();
-    return -distribution.map((p) => (p * log(p))).reduce((a, b) => (a + b));
+    return -distribution.map((p) => (p * log(p))).fold(0.0, (a, b) => (a + b));
   }
 
   /// Normalized Entropy, i.e. entropy relative to the number of places
@@ -82,13 +82,13 @@ class Features {
 
   /// Total distance travelled in meters
   double get totalDistance =>
-      moves.map((m) => (m.distance)).reduce((a, b) => a + b);
+      moves.map((m) => (m.distance)).fold(0.0, (a, b) => a + b);
 
   /// Total distance travelled in meters for the specified date
   double get totalDistanceDaily => moves
       .where((m) => m.stopFrom.arrival.date == date)
       .map((m) => (m.distance))
-      .reduce((a, b) => a + b);
+      .fold(0, (a, b) => a + b);
 
   /// TIME SPENT AT PLACES EACH HOUR
   List<List<double>> calculateTimeSpentAtPlaceAtHour(DateTime chosenDate) {
@@ -141,7 +141,7 @@ class Features {
     /// Calculate distribution for time spent at places
     double timeSpentTotal = places
         .map((p) => p.duration.inMilliseconds)
-        .reduce((a, b) => a + b)
+        .fold(0, (a, b) => a + b)
         .toDouble();
     double timeSpentAtHome = places
         .where((p) => p._id == homeIndex)
@@ -166,14 +166,17 @@ class Features {
     /// Calculate distribution for time spent at different places
     double timeSpentTotal = stopsOnDate
         .map((s) => s.duration.inMilliseconds)
-        .reduce((a, b) => a + b)
+        .fold(0, (a, b) => a + b)
         .toDouble();
 
     double timeSpentAtHome = stopsOnDate
         .where((s) => s.placeId == homeIndex)
         .map((s) => s.duration.inMilliseconds)
-        .reduce((a, b) => a + b)
+        .fold(0, (a, b) => a + b)
         .toDouble();
+
+    // Avoid div by zero error
+    timeSpentTotal = timeSpentTotal > 0 ? timeSpentTotal : 1;
 
     return timeSpentAtHome / timeSpentTotal;
   }
@@ -191,7 +194,7 @@ class Features {
         .toList();
 
     // Calculate the mean difference
-    return diffs.reduce((a, b) => a + b) / (diffs.length.toDouble());
+    return diffs.fold(0.0, (a, b) => a + b) / (diffs.length.toDouble());
   }
 
   double _routineIndexDifference(DateTime d1, DateTime d2) {
@@ -212,7 +215,7 @@ class Features {
       timeslots[i] = r;
     }
 
-    return 1.0 - timeslots.reduce((a, b) => a + b) / 24.0;
+    return 1.0 - timeslots.fold(0.0, (a, b) => a + b) / 24.0;
   }
 }
 
