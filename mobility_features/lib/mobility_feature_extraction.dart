@@ -3,16 +3,27 @@ part of mobility_features_lib;
 const int HOURS_IN_A_DAY = 24;
 
 class Features {
-  List<SingleLocationPoint> data;
-  List<Stop> stops;
+  List<SingleLocationPoint> data, dataOnDate;
+  List<Stop> stops, stopsOnDate;
   List<Place> places;
-  List<Move> moves;
+  List<int> placeIdsOnDate;
+  List<Move> moves, movesOnDate;
   DateTime date;
+  Set<DateTime> uniqueDates;
 
-  Features(this.date, this.data, this.stops, this.places, this.moves);
+  Features(this.date, this.uniqueDates, this.data, this.stops, this.places,
+      this.moves) {
+    this.dataOnDate = data.where((d) => d.datetime.date == date).toList();
+    this.stopsOnDate = stops.where((d) => d.arrival.date == date).toList();
+    this.placeIdsOnDate = stopsOnDate.map((s) => s.placeId).toSet().toList();
+    this.movesOnDate = moves.where((d) => d.stopFrom.arrival == date).toList();
+  }
 
   /// Number of clusters found by DBSCAN, i.e. number of places
   int get numberOfClusters => places.length;
+
+  /// Number of clusters on the specified date
+  int get numberOfClustersDaily => placeIdsOnDate.length;
 
   /// Location variance
   double get locationVariance {
@@ -20,6 +31,18 @@ class Features {
         .standardDeviation;
     double lonStd = Stats.fromData(data.map((d) => (d._location._longitude)))
         .standardDeviation;
+    double locVar = log(latStd * latStd + lonStd * lonStd + 1);
+    return data.length >= 2 ? locVar : 0.0;
+  }
+
+  /// Location variance
+  double get locationVarianceDaily {
+    double latStd = Stats.fromData(data
+        .where((d) => d.datetime.date == date)
+        .map((d) => (d._location._latitude))).standardDeviation;
+    double lonStd = Stats.fromData(data
+        .where((d) => d.datetime.date == date)
+        .map((d) => (d._location._longitude))).standardDeviation;
     double locVar = log(latStd * latStd + lonStd * lonStd + 1);
     return data.length >= 2 ? locVar : 0.0;
   }
@@ -35,31 +58,52 @@ class Features {
     return -distribution.map((p) => (p * log(p))).reduce((a, b) => (a + b));
   }
 
+  /// Entropy for the specified date in the constructor
+  double get entropyDaily {
+    List<Duration> durations = places
+        .map((p) => (p.durationForDate(date)))
+        .where((dur) => dur.inMilliseconds > 0) // avoid log(0) error later
+        .toList();
+
+    Duration sum = durations.reduce((a, b) => (a + b));
+    List<double> distribution = durations
+        .map((d) =>
+            (d.inMilliseconds.toDouble() / sum.inMilliseconds.toDouble()))
+        .toList();
+    return -distribution.map((p) => (p * log(p))).reduce((a, b) => (a + b));
+  }
+
   /// Normalized Entropy, i.e. entropy relative to the number of places
   double get normalizedEntropy => entropy / log(numberOfClusters);
+
+  /// Normalized Entropy for the date specified in the constructor
+  double get normalizedEntropyDaily =>
+      entropyDaily / log(numberOfClustersDaily);
 
   /// Total distance travelled in meters
   double get totalDistance =>
       moves.map((m) => (m.distance)).reduce((a, b) => a + b);
 
-  /// TIME SPENT AT PLACES EACH HOUR
-  List<List<double>> calculateTimeSpentAtPlaceAtHour(DateTime chosenDateTime) {
-    /// All stops on the current date
-    List<Stop> stopsOnDay = stops
-        .where((s) => (s.arrival.date == chosenDateTime.date &&
-            s.departure.date == chosenDateTime.date))
-        .toList();
+  /// Total distance travelled in meters for the specified date
+  double get totalDistanceDaily => moves
+      .where((m) => m.stopFrom.arrival.date == date)
+      .map((m) => (m.distance))
+      .reduce((a, b) => a + b);
 
-    Set<int> placeLabels = stopsOnDay.map((s) => (s.placeId)).toSet();
-    int m = 24, n = placeLabels.length;
+  /// TIME SPENT AT PLACES EACH HOUR
+  List<List<double>> calculateTimeSpentAtPlaceAtHour(DateTime chosenDate) {
+    int m = HOURS_IN_A_DAY, n = numberOfClusters;
+
+    List<Stop> stopsOnChosenDate =
+        stops.where((d) => d.arrival.date == chosenDate).toList();
 
     /// Init 2d matrix with m rows and n cols
     List<List<double>> hourMatrix =
         new List.generate(m, (_) => new List<double>.filled(n, 0.0));
 
-    for (int pId in placeLabels) {
+    for (int pId in range(0, n)) {
       List<Stop> stopsAtPlace =
-          stopsOnDay.where((s) => (s.placeId) == pId).toList();
+          stopsOnChosenDate.where((s) => (s.placeId) == pId).toList();
       for (Stop s in stopsAtPlace) {
         StopHours sr = StopHours.fromStop(s);
 
@@ -76,10 +120,11 @@ class Features {
 
       /// Avoid division by 0 error
       sum = sum > 0.0 ? sum : 1.0;
-      for (int pId in placeLabels) {
+      for (int pId in range(0, n)) {
         hourMatrix[h][pId] /= sum;
       }
     }
+
     return hourMatrix;
   }
 
@@ -108,26 +153,54 @@ class Features {
     return timeSpentAtHome / timeSpentTotal;
   }
 
-  double calculateRoutineIndex(DateTime chosenDateTime) {
-    /// All stops on the current date
-    List<Stop> current =
-        stops.where((s) => (s.arrival.date == chosenDateTime.date)).toList();
+  /// Home Stay
+  double get homeStayDaily {
+    List<List<double>> hours = calculateTimeSpentAtPlaceAtHour(date);
 
-    /// All stops before the current date
-    List<Stop> history =
-        stops.where((s) => (s.departure.date != chosenDateTime.date)).toList();
+    /// Find the home place id
+    List<List<double>> nightHours = hours.sublist(0, 6);
+    List<double> nightHoursAtPlaces =
+        nightHours.map((h) => h.reduce((a, b) => a + b)).toList();
+    int homeIndex = nightHoursAtPlaces.argmax;
 
-    /// If unable to calculate index, return 0
-    if (current.isEmpty || history.isEmpty) return 0.0;
+    /// Calculate distribution for time spent at different places
+    double timeSpentTotal = stopsOnDate
+        .map((s) => s.duration.inMilliseconds)
+        .reduce((a, b) => a + b)
+        .toDouble();
+
+    double timeSpentAtHome = stopsOnDate
+        .where((s) => s.placeId == homeIndex)
+        .map((s) => s.duration.inMilliseconds)
+        .reduce((a, b) => a + b)
+        .toDouble();
+
+    return timeSpentAtHome / timeSpentTotal;
   }
 
-  double routineIndexDifference(DateTime d1, DateTime d2) {
+  /// Mean timetable difference between the data of the current date,
+  /// and the data of the historic dates
+  double get routineIndex {
+    if (uniqueDates.length < 2) return -1.0;
+
+    // Calculate the routine index differences between the current date and each
+    // historical date
+    List<double> diffs = uniqueDates
+        .where((d) => d.leq(date))
+        .map((d) => _routineIndexDifference(date, d))
+        .toList();
+
+    // Calculate the mean difference
+    return diffs.reduce((a, b) => a + b) / (diffs.length.toDouble());
+  }
+
+  double _routineIndexDifference(DateTime d1, DateTime d2) {
     List<List<double>> hours1 = calculateTimeSpentAtPlaceAtHour(d1);
     List<List<double>> hours2 = calculateTimeSpentAtPlaceAtHour(d2);
 
     int numPlaces = min(hours1.first.length, hours2.first.length);
 
-    /// calculate overlap
+    /// Calculate overlap
     List<double> timeslots = List<double>.filled(HOURS_IN_A_DAY, 0.0);
 
     for (int i in range(0, HOURS_IN_A_DAY)) {
@@ -138,6 +211,7 @@ class Features {
       }
       timeslots[i] = r;
     }
+
     return 1.0 - timeslots.reduce((a, b) => a + b) / 24.0;
   }
 }

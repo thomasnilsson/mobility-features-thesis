@@ -8,16 +8,6 @@ void printList(List l) {
   print('-' * 50);
 }
 
-void printMatrix(List<List> m) {
-  for (List row in m) {
-    String s = '';
-    for (var e in row) {
-      s += '$e ';
-    }
-    print(s);
-  }
-}
-
 double abs(double x) => x >= 0 ? x : -x;
 
 bool vectorsEqual(List<double> a, List<double> b) {

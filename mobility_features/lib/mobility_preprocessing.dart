@@ -31,7 +31,7 @@ class Preprocessor {
     List<Place> places = _findPlaces(stops);
     List<Move> moves = _findMoves(data, stops);
 
-    return Features(date, data, stops, places, moves);
+    return Features(date, uniqueDates, data, stops, places, moves);
   }
 
   /// Groups the dataset by dates.

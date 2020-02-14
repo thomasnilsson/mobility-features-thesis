@@ -91,3 +91,14 @@ extension LocationList on List<SingleLocationPoint> {
   List<Location> get locations =>
       this.map((SingleLocationPoint d) => d._location).toList();
 }
+
+
+void printMatrix(List<List> m) {
+  for (List row in m) {
+    String s = '';
+    for (var e in row) {
+      s += '$e ';
+    }
+    print(s);
+  }
+}

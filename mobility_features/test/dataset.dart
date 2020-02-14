@@ -8,10 +8,10 @@ class Dataset {
         .then((fileContents) => json.decode(fileContents));
 
     /// Cast as Map with String keys
-    Map<String, dynamic> x = Map<String, dynamic>.from(fileContents);
+    Map<String, dynamic> jsonData = Map<String, dynamic>.from(fileContents);
 
     /// Convert to LocationData List
-    return x.keys.map((k) => SingleLocationPoint.fromJson(x[k])).toList();
+    return jsonData.keys.map((k) => SingleLocationPoint.fromJson(jsonData[k], hourOffset: -1)).toList();
   }
 
   Future<List<SingleLocationPoint>> get multiDateData async =>
@@ -19,6 +19,5 @@ class Dataset {
 
   Future<List<SingleLocationPoint>> get singleDateData async =>
       await _readJsonFromFile('test/data/single_date_data.json');
-
 
 }
