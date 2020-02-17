@@ -52,13 +52,13 @@ void main() async {
     print('Normalized Entropy: ${f.normalizedEntropy}');
     print('Total Distance (meters): ${f.totalDistance}');
     print('Homestay (%): ${f.homeStay}');
-
+    print('-' * 50);
     print('Daily Number of Clusters: ${f.numberOfClustersDaily}');
     print('Daily Location Variance: ${f.locationVarianceDaily}');
     print('Daily Entropy: ${f.entropyDaily}');
     print('Daily Normalized Entropy: ${f.normalizedEntropyDaily}');
     print('Daily Total Distance (meters): ${f.totalDistanceDaily}');
-    print('Daily Homestay (%): ${f.homeStay}');
+    print('Daily Homestay (%): ${f.homeStayDaily}');
 
     print('Routine index (%): ${f.routineIndex}');
   });

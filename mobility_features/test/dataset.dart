@@ -12,22 +12,16 @@ class Dataset {
 
   Future<List<SingleLocationPoint>> _readJsonFromFile(String path) async {
     List<SingleLocationPoint> data = [];
-    List<Map<String, String>> maps = [];
     final file = await await new File(path);
 
     await file.readAsString().then((String contents) {
       List<String> tokens = contents.split('\n');
-      print('Tokens length: ${tokens.length}');
-
       for (String x in tokens) {
         Map<String, String> m = decode(x);
         if (m.isNotEmpty) {
-          maps.add(m);
           data.add(SingleLocationPoint.fromJson(m));
         }
       }
-
-      print('Maps length: ${maps.length}');
     });
     return data;
   }
