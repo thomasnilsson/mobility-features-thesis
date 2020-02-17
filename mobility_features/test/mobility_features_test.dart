@@ -3,12 +3,12 @@ import 'package:mobility_features/mobility_features_lib.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() async {
-  List<SingleLocationPoint> data = await Dataset().multiDateData;
+  List<SingleLocationPoint> data = await Dataset().exampleData;
   printList(data.sublist(0, 10));
 
   test('Datetime extension', () async {
-    DateTime d1 = DateTime.parse('2019-11-11 09:30:00.000');
-    DateTime d2 = DateTime.parse('2019-11-11 13:31:00.400');
+    DateTime d1 = DateTime.parse('2020-02-12 09:30:00.000');
+    DateTime d2 = DateTime.parse('2020-02-14 13:31:00.400');
     assert(d1.date == d2.date);
   });
 
@@ -28,7 +28,7 @@ void main() async {
 
 
   test('Run feature extraction', () async {
-    DateTime date = DateTime(2019, 11, 13);
+    DateTime date = DateTime(2020, 02, 14);
     Preprocessor p = Preprocessor(data, moveDuration: Duration(minutes: 3));
     Features f = p.featuresByDate(date);
 
