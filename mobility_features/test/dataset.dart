@@ -1,22 +1,35 @@
 part of mobility_features_test_lib;
 
 class Dataset {
+  Map<String, String> decode(String s) {
+    try {
+      Map<String, String> res = Map<String, String>.from(json.decode(s));
+      return res;
+    } catch (e) {
+      return {};
+    }
+  }
+
   Future<List<SingleLocationPoint>> _readJsonFromFile(String path) async {
-    /// Read file contents, without assuming type
-    Future<List<SingleLocationPoint>> xxx = await new File(path)
-        .readAsString()
-        .then((content) => content.split('\n').map((s) {
-              var map = json.decode(s);
-              return SingleLocationPoint.fromJson(map);
-            }));
+    List<SingleLocationPoint> data = [];
+    List<Map<String, String>> maps = [];
+    final file = await await new File(path);
 
-    /// Cast as Map with String keys
-    Map<String, dynamic> jsonData = Map<String, dynamic>.from(fileContents);
+    await file.readAsString().then((String contents) {
+      List<String> tokens = contents.split('\n');
+      print('Tokens length: ${tokens.length}');
 
-    /// Convert to LocationData List
-    return jsonData.keys
-        .map((k) => SingleLocationPoint.fromJson(jsonData[k], hourOffset: -1))
-        .toList();
+      for (String x in tokens) {
+        Map<String, String> m = decode(x);
+        if (m.isNotEmpty) {
+          maps.add(m);
+          data.add(SingleLocationPoint.fromJson(m));
+        }
+      }
+
+      print('Maps length: ${maps.length}');
+    });
+    return data;
   }
 
   Future<List<SingleLocationPoint>> get exampleData async =>

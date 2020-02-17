@@ -8,7 +8,7 @@ void main() async {
 
   test('Datetime extension', () async {
     DateTime d1 = DateTime.parse('2020-02-12 09:30:00.000');
-    DateTime d2 = DateTime.parse('2020-02-14 13:31:00.400');
+    DateTime d2 = DateTime.parse('2020-02-12 13:31:00.400');
     assert(d1.date == d2.date);
   });
 
@@ -23,9 +23,8 @@ void main() async {
     final p = Preprocessor(data, moveDuration: Duration(minutes: 3));
     print('Data Grouped by dates:');
     print('*' * 50);
-    printList(p.dataGroupedByDates);
+    printList(p.dataGroupedByDates.map((arr) => arr.length).toList());
   });
-
 
   test('Run feature extraction', () async {
     DateTime date = DateTime(2020, 02, 14);
@@ -54,7 +53,6 @@ void main() async {
     print('Total Distance (meters): ${f.totalDistance}');
     print('Homestay (%): ${f.homeStay}');
 
-
     print('Daily Number of Clusters: ${f.numberOfClustersDaily}');
     print('Daily Location Variance: ${f.locationVarianceDaily}');
     print('Daily Entropy: ${f.entropyDaily}');
@@ -63,6 +61,5 @@ void main() async {
     print('Daily Homestay (%): ${f.homeStay}');
 
     print('Routine index (%): ${f.routineIndex}');
-
   });
 }
