@@ -70,10 +70,9 @@ class _MyHomePageState extends State<MyHomePage> {
   void _pressedPrint() async {
     await FileUtil().read().then((List<Map<String, String>> c) {
       showGpsData = true;
-      print(c);
       _dataPointsJson = c;
       content = [];
-      for (Map<String, String> m in _dataPointsJson) {
+      for (Map<String, String> m in _dataPointsJson.reversed.toList().sublist(0, 9)) {
         print(m);
         content.add(m.toString());
       }
@@ -96,6 +95,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _pressedCalculate() {
     showGpsData = false;
+
     List<SingleLocationPoint> dataset = [];
     for (Map<String, String> m in _dataPointsJson) {
       SingleLocationPoint d = SingleLocationPoint.fromJson(m);
@@ -103,22 +103,23 @@ class _MyHomePageState extends State<MyHomePage> {
     }
 
     Preprocessor p = Preprocessor(dataset);
-    DateTime date = DateTime.now(); //DateTime(2020, 02, 12);
+//    DateTime date = DateTime(2020, 02, 14);
+    DateTime date = DateTime.now().date;
     Features f = p.featuresByDate(date);
 
     content = [];
-    content.add('homeStayDaily: ${f.homeStayDaily}');
-//    content.add('locationVarianceDaily: ${f.locationVarianceDaily}');
-    content.add('totalDistanceDaily: ${f.totalDistanceDaily}');
-    content.add('numberOfClustersDaily: ${f.numberOfClustersDaily}');
-    content.add('normalizedEntropyDaily: ${f.normalizedEntropyDaily}');
-    content.add('routineIndex: ${f.routineIndex}');
-    content.add('-'*50);
     content.add('homeStay: ${f.homeStay}');
     content.add('locationVariance: ${f.locationVariance}');
     content.add('totalDistance: ${f.totalDistance}');
     content.add('numberOfClusters: ${f.numberOfClusters}');
     content.add('normalizedEntropy: ${f.normalizedEntropy}');
+    content.add('-'*50);
+    content.add('homeStayDaily: ${f.homeStayDaily}');
+    content.add('locationVarianceDaily: ${f.locationVarianceDaily}');
+    content.add('totalDistanceDaily: ${f.totalDistanceDaily}');
+    content.add('numberOfClustersDaily: ${f.numberOfClustersDaily}');
+    content.add('normalizedEntropyDaily: ${f.normalizedEntropyDaily}');
+    content.add('routineIndex: ${f.routineIndex}');
     content.add('-'*50);
 
     for (var x in f.stops) {
