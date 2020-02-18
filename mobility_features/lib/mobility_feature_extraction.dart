@@ -27,9 +27,9 @@ class Features {
 
   /// Location variance
   double get locationVariance {
-    double latStd = Stats.fromData(data.map((d) => (d._location._latitude)))
+    double latStd = Stats.fromData(data.map((d) => (d.location.latitude)))
         .standardDeviation;
-    double lonStd = Stats.fromData(data.map((d) => (d._location._longitude)))
+    double lonStd = Stats.fromData(data.map((d) => (d.location.longitude)))
         .standardDeviation;
     double locVar = log(latStd * latStd + lonStd * lonStd + 1);
     return data.length >= 2 ? locVar : 0.0;
@@ -37,12 +37,15 @@ class Features {
 
   /// Location variance
   double get locationVarianceDaily {
-    double latStd = Stats.fromData(data
-        .where((d) => d.datetime.date == date)
-        .map((d) => (d._location._latitude))).standardDeviation;
-    double lonStd = Stats.fromData(data
-        .where((d) => d.datetime.date == date)
-        .map((d) => (d._location._longitude))).standardDeviation;
+
+    print('Lats length ${dataOnDate.map((d) => (d.location.latitude)).length}');
+
+    double latStd =
+        Stats.fromData(dataOnDate.map((d) => (d.location.latitude)))
+            .standardDeviation;
+    double lonStd =
+        Stats.fromData(dataOnDate.map((d) => (d.location.longitude)))
+            .standardDeviation;
     double locVar = log(latStd * latStd + lonStd * lonStd + 1);
     return data.length >= 2 ? locVar : 0.0;
   }

@@ -27,7 +27,8 @@ void main() async {
   });
 
   test('Run feature extraction', () async {
-    DateTime date = DateTime(2020, 02, 14);
+//    DateTime date = DateTime(2020, 02, 14);
+    DateTime date = DateTime.now();
     Preprocessor p = Preprocessor(data, moveDuration: Duration(minutes: 3));
     Features f = p.featuresByDate(date);
 
