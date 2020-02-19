@@ -16,7 +16,7 @@ class Features {
     this.dataOnDate = data.where((d) => d.datetime.date == date).toList();
     this.stopsOnDate = stops.where((d) => d.arrival.date == date).toList();
     this.placeIdsOnDate = stopsOnDate.map((s) => s.placeId).toSet().toList();
-    this.movesOnDate = moves.where((d) => d.stopFrom.arrival == date).toList();
+    this.movesOnDate = moves.where((d) => d.stopFrom.arrival.date == date).toList();
   }
 
   /// Number of clusters found by DBSCAN, i.e. number of places
