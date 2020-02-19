@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'mobility.dart';
+import 'dart:isolate';
+import 'package:flutter/foundation.dart';
+import 'ui/data_widget.dart';
+import 'ui/features_widget.dart';
 
 void main() => runApp(MyApp());
-
 
 class MyApp extends StatelessWidget {
   // This widget is the root of your application.
@@ -30,32 +33,62 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   Geolocator geo = Geolocator();
-  bool tracking = false;
-  List<Map<String, String>> _dataPointsJson = [];
-  List<String> content = [];
+  List<SingleLocationPoint> dataset = [];
   final databaseReference = FirebaseDatabase.instance.reference();
-  bool showGpsData = true;
-
+  int _currentIndex = 0;
+  List<Widget> _children = [DataWidget([]), FeaturesWidget(null)];
 
   @override
   void initState() {
     super.initState();
-    initLocation();
+
+    init();
+    _initLocation();
   }
 
-  void initLocation() async {
+  void init() async {
+    await _loadDataset();
+    await _loadFeatures();
+  }
+
+  Future _loadDataset() async {
+    dataset = [];
+    await FileUtil().read().then((List<Map<String, String>> jsonContent) {
+      for (Map<String, String> m in jsonContent) {
+        SingleLocationPoint d = SingleLocationPoint.fromJson(m);
+        dataset.add(d);
+      }
+    });
+
+    _children[0] = DataWidget(dataset);
+  }
+
+  Future _loadFeatures() async {
+    // Port where we will receive our answer to nth prime.
+    // From isolate to main isolate.
+    ReceivePort receivePort = ReceivePort();
+    await Isolate.spawn(calcFeaturesAsync, receivePort.sendPort);
+
+    // Send port for the prime number isolate. We will send parameter n
+    // using this port.
+    SendPort sendPort = await receivePort.first;
+
+    Features f = await sendReceive(sendPort, dataset);
+    _children[1] = FeaturesWidget(f);
+  }
+
+  void _initLocation() async {
     await geo.isLocationServiceEnabled().then((response) {
       if (response) {
-        startStreaming();
+        _startStreaming();
       } else {
         print('Location service not enabled');
       }
     });
   }
 
-  void startStreaming() {
+  void _startStreaming() {
     geo.getPositionStream().listen((Position d) async {
-      tracking = true;
       print('-' * 50);
       Map<String, String> x = {
         'lat': d.latitude.toString(),
@@ -64,19 +97,6 @@ class _MyHomePageState extends State<MyHomePage> {
       };
       print(x);
       FileUtil().write(x);
-    });
-  }
-
-  void _pressedPrint() async {
-    await FileUtil().read().then((List<Map<String, String>> c) {
-      showGpsData = true;
-      _dataPointsJson = c;
-      content = [];
-      for (Map<String, String> m in _dataPointsJson.reversed.toList().sublist(0, 9)) {
-        print(m);
-        content.add(m.toString());
-      }
-      setState(() => print('Refreshed UI'));
     });
   }
 
@@ -93,63 +113,35 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  void _pressedCalculate() {
-    showGpsData = false;
+  static calcFeaturesAsync(SendPort sendPort) async {
+    // Port for receiving message from main isolate.
+    // We will receive the value of n using this port.
+    ReceivePort receivePort = ReceivePort();
+    // Sending the send Port of isolate to receive port of main isolate.
+    sendPort.send(receivePort.sendPort);
+    var msg = await receivePort.first;
 
-    List<SingleLocationPoint> dataset = [];
-    for (Map<String, String> m in _dataPointsJson) {
-      SingleLocationPoint d = SingleLocationPoint.fromJson(m);
-      dataset.add(d);
-    }
+    List<SingleLocationPoint> dataset = msg[0];
+    SendPort replyPort = msg[1];
 
     Preprocessor p = Preprocessor(dataset);
-//    DateTime date = DateTime(2020, 02, 14);
     DateTime date = DateTime.now().date;
     Features f = p.featuresByDate(date);
 
-    content = [];
-    content.add('homeStay: ${f.homeStay}');
-    content.add('locationVariance: ${f.locationVariance}');
-    content.add('totalDistance: ${f.totalDistance}');
-    content.add('numberOfClusters: ${f.numberOfClusters}');
-    content.add('normalizedEntropy: ${f.normalizedEntropy}');
-    content.add('-'*50);
-    content.add('homeStayDaily: ${f.homeStayDaily}');
-    content.add('locationVarianceDaily: ${f.locationVarianceDaily}');
-    content.add('totalDistanceDaily: ${f.totalDistanceDaily}');
-    content.add('numberOfClustersDaily: ${f.numberOfClustersDaily}');
-    content.add('normalizedEntropyDaily: ${f.normalizedEntropyDaily}');
-    content.add('routineIndex: ${f.routineIndex}');
-    content.add('-'*50);
-
-    for (var x in f.stops) {
-      content.add(x.toString());
-    }
-    for (var x in f.places) {
-      content.add(x.toString());
-    }
-    for (var x in f.moves) {
-      content.add(x.toString());
-    }
-
-
-    for (var x in content) print(x);
-    setState(() => print('Refreshed UI'));
-
+    replyPort.send(f);
   }
 
-  String parseRow(int index) {
-    String txt = content[index];
-    if (showGpsData) {
-      Map<String, String> m = _dataPointsJson.reversed.toList()[index];
-      if (m.isNotEmpty) {
-        String time =
-        DateTime.fromMillisecondsSinceEpoch(int.parse(m['datetime']))
-            .toIso8601String();
-        txt = "$time: ${m['lat']}, ${m['lon']}";
-      }
-    }
-    return txt;
+  Future sendReceive(SendPort send, message) {
+    ReceivePort receivePort = ReceivePort();
+    send.send([message, receivePort.sendPort]);
+    return receivePort.first;
+  }
+
+  void onTabTapped(int index) {
+    _loadDataset();
+    setState(() {
+      _currentIndex = index;
+    });
   }
 
   @override
@@ -157,30 +149,34 @@ class _MyHomePageState extends State<MyHomePage> {
     return MaterialApp(
         home: Scaffold(
       appBar: AppBar(
-        title: Text('GeoTracker'),
+        title: Text('Mobility Demo'),
         actions: <Widget>[
-          IconButton(
-            icon: Icon(Icons.print),
-            onPressed: _pressedPrint,
-          ),
           IconButton(
             icon: Icon(Icons.cloud_upload),
             onPressed: _pressedFileUpload,
           ),
           IconButton(
-            icon: Icon(Icons.my_location),
-            onPressed: _pressedCalculate,
-          )
+            icon: Icon(Icons.update),
+            onPressed: _loadFeatures,
+          ),
         ],
       ),
-      body: content.isEmpty
-          ? Text('No data yet 😭')
-          : ListView.builder(
-              itemCount: content.length,
-              itemBuilder: (_, index) => ListTile(
-                title: Text(parseRow(index)),
-              ),
-            ),
+      bottomNavigationBar: BottomNavigationBar(
+        onTap: onTabTapped,
+        currentIndex: _currentIndex,
+        // this will be set when a new tab is tapped
+        items: [
+          BottomNavigationBarItem(
+            icon: new Icon(Icons.location_on),
+            title: new Text('Data'),
+          ),
+          BottomNavigationBarItem(
+            icon: new Icon(Icons.person),
+            title: new Text('Features'),
+          ),
+        ],
+      ),
+      body: _children[_currentIndex], // new
     ));
   }
 }
