@@ -19,7 +19,7 @@ class Dataset {
       for (String x in tokens) {
         Map<String, String> m = decode(x);
         if (m.isNotEmpty) {
-          data.add(SingleLocationPoint.fromJson(m));
+          data.add(SingleLocationPoint.fromMap(m));
         }
       }
     });

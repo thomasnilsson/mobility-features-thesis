@@ -27,7 +27,6 @@ void main() async {
   });
 
   test('Run feature extraction', () async {
-//    DateTime date = DateTime(2020, 02, 14);
     DateTime date = DateTime.now();
     Preprocessor p = Preprocessor(data, moveDuration: Duration(minutes: 3));
     Features f = p.featuresByDate(date);
@@ -62,5 +61,33 @@ void main() async {
     print('Daily Homestay (%): ${f.homeStayDaily}');
 
     print('Routine index (%): ${f.routineIndex}');
+  });
+
+  test('Serialization', () async {
+    SingleLocationPoint p =
+        SingleLocationPoint(Location(12.345, 98.765), DateTime.now());
+
+    var toJson = p.toJson();
+
+    SingleLocationPoint fromJson = SingleLocationPoint.fromJson(toJson);
+
+    Stop s = Stop([p, p, p], placeId: 2);
+
+    var jsonStop = s.toJson();
+    print(jsonStop);
+
+    Stop stopFromJson = Stop.fromJson(jsonStop);
+
+    print(toJson);
+    print(fromJson);
+
+    print(stopFromJson);
+  });
+
+  test('Incremental RI', () async {
+    DateTime date = DateTime(2020, 02, 17);
+    Preprocessor p = Preprocessor(data, moveDuration: Duration(minutes: 3));
+    Features f = p.featuresByDate(date);
+    var stops = f.stops;
   });
 }

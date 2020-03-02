@@ -37,9 +37,6 @@ class Features {
 
   /// Location variance
   double get locationVarianceDaily {
-
-    print('Lats length ${dataOnDate.map((d) => (d.location.latitude)).length}');
-
     double latStd =
         Stats.fromData(dataOnDate.map((d) => (d.location.latitude)))
             .standardDeviation;
@@ -119,7 +116,7 @@ class Features {
 
     /// Normalize rows, divide by sum
     for (int h in range(0, HOURS_IN_A_DAY)) {
-      double sum = hourMatrix[h].reduce((a, b) => (a + b));
+      double sum = hourMatrix[h].fold(0, (a, b) => (a + b));
 
       /// Avoid division by 0 error
       sum = sum > 0.0 ? sum : 1.0;
@@ -163,7 +160,7 @@ class Features {
     /// Find the home place id
     List<List<double>> nightHours = hours.sublist(0, 6);
     List<double> nightHoursAtPlaces =
-        nightHours.map((h) => h.reduce((a, b) => a + b)).toList();
+        nightHours.map((h) => h.fold(0.0, (a, b) => (a + b) as double)).toList();
     int homeIndex = nightHoursAtPlaces.argmax;
 
     /// Calculate distribution for time spent at different places

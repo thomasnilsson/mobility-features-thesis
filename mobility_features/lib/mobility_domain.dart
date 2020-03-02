@@ -18,6 +18,9 @@ class Location {
 
   double get longitude => _longitude;
 
+  Map<String, dynamic> toJson() =>
+      {'latitude': latitude, 'longitude': longitude};
+
   @override
   String toString() {
     return 'Location: ($_latitude, $_longitude)';
@@ -33,7 +36,7 @@ class SingleLocationPoint {
 
   SingleLocationPoint(this._location, this._datetime, {this.speed});
 
-  factory SingleLocationPoint.fromJson(Map<String, dynamic> x,
+  factory SingleLocationPoint.fromMap(Map<String, dynamic> x,
       {int hourOffset = 0}) {
     /// Parse, i.e. perform type check
     double lat = double.parse(x['lat'].toString());
@@ -45,9 +48,19 @@ class SingleLocationPoint {
     return SingleLocationPoint(Location(lat, lon), _datetime);
   }
 
+  factory SingleLocationPoint.fromJson(Map<String, dynamic> json) {
+    /// Parse, i.e. perform type check
+    Location loc = Location.fromJson(json['location']);
+    DateTime dt = json['datetime'];
+    return SingleLocationPoint(loc, dt);
+  }
+
   Location get location => _location;
 
   DateTime get datetime => _datetime;
+
+  Map<String, dynamic> toJson() =>
+      {'location': location.toJson(), 'datetime': datetime};
 
   @override
   String toString() {
@@ -63,12 +76,11 @@ class SingleLocationPoint {
 class Stop {
   List<SingleLocationPoint> points;
   Location _centroid;
-  int placeId, _samples;
+  int placeId;
   DateTime arrival, departure;
 
   Stop(this.points, {this.placeId = -1}) {
     _centroid = calculateCentroid(points.locations);
-    _samples = points.length;
 
     /// Find min/max time
     arrival = DateTime.fromMillisecondsSinceEpoch(
@@ -79,11 +91,19 @@ class Stop {
 
   Location get centroid => _centroid;
 
-  int get samples => _samples;
-
   Duration get duration => Duration(
       milliseconds:
           departure.millisecondsSinceEpoch - arrival.millisecondsSinceEpoch);
+
+  Map<String, dynamic> toJson() =>
+      {'points': points.map((p) => p.toJson()).toList(), 'placeId': placeId};
+
+  factory Stop.fromJson(Map<String, dynamic> json) {
+    List<SingleLocationPoint> decodedPoints = (json['points'] as List)
+        .map((m) => SingleLocationPoint.fromJson(m))
+        .toList();
+    return Stop(decodedPoints, placeId: json['placeId']);
+  }
 
   @override
   String toString() {
@@ -109,6 +129,7 @@ class Place {
       .where((s) => s.arrival.date == d)
       .map((s) => s.duration)
       .fold(Duration(), (a, b) => a + b);
+
   // Init accumulator to zero (empty duration),
   // otherwise reduce/fold will fail if
   // a place has not been visited on the specified date

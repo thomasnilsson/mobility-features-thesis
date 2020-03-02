@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:simple_cluster/src/dbscan.dart';
 import 'package:stats/stats.dart';
 import 'dart:core';
+import 'dart:convert';
 
 part 'mobility_functions.dart';
 part 'mobility_domain.dart';
