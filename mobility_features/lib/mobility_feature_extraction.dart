@@ -181,9 +181,21 @@ class Features {
     return timeSpentAtHome / timeSpentTotal;
   }
 
+  List<Stop> _loadHistoricalStops() {
+
+  }
+
+
+  double get routineIndex {
+    // Load stops from disk
+    // Filter out historical stops
+    //
+    return 1.0;
+  }
+
   /// Mean timetable difference between the data of the current date,
   /// and the data of the historic dates
-  double get routineIndex {
+  double get routineIndexOld {
     if (uniqueDates.length < 2) return -1.0;
 
     // Calculate the routine index differences between the current date and each

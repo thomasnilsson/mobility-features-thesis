@@ -1,6 +1,7 @@
 import 'mobility_features_test_lib.dart';
 import 'package:mobility_features/mobility_features_lib.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'dart:convert';
 
 void main() async {
   List<SingleLocationPoint> data = await Dataset().exampleData;
@@ -60,12 +61,12 @@ void main() async {
     print('Daily Total Distance (meters): ${f.totalDistanceDaily}');
     print('Daily Homestay (%): ${f.homeStayDaily}');
 
-    print('Routine index (%): ${f.routineIndex}');
+    print('Routine index (%): ${f.routineIndexOld}');
   });
 
   test('Serialization', () async {
     SingleLocationPoint p =
-        SingleLocationPoint(Location(12.345, 98.765), DateTime.now());
+    SingleLocationPoint(Location(12.345, 98.765), DateTime.now());
 
     var toJson = p.toJson();
 
@@ -74,14 +75,34 @@ void main() async {
     Stop s = Stop([p, p, p], placeId: 2);
 
     var jsonStop = s.toJson();
-    print(jsonStop);
-
     Stop stopFromJson = Stop.fromJson(jsonStop);
 
-    print(toJson);
-    print(fromJson);
+    List jsonStops = [stopFromJson, stopFromJson, stopFromJson]
+        .map((s) => s.toJson())
+        .toList();
 
-    print(stopFromJson);
+    String jsonStringStops = json.encode(jsonStops);
+
+    List decoded = json.decode(jsonStringStops);
+    List<Stop> stopsDecoded = decoded.map((d) => Stop.fromJson(d)).toList();
+    printList(decoded);
+    printList(stopsDecoded);
+  });
+
+  test('Serialization', () async {
+    SingleLocationPoint p =
+    SingleLocationPoint(Location(12.345, 98.765), DateTime.now());
+    Stop s = Stop([p, p, p], placeId: 2);
+    List<Stop> stops = [s, s, s];
+
+    List jsonStops = stops
+        .map((s) => s.toJson())
+        .toList();
+
+    FileManager fm = FileManager('stops.json');
+    await fm.writeStops(stops);
+    List<Stop> stopsFromFile = await fm.readStops();
+    printList(stopsFromFile);
   });
 
   test('Incremental RI', () async {

@@ -93,6 +93,52 @@ extension LocationList on List<SingleLocationPoint> {
 }
 
 
+
+class FileManager {
+
+  String filename;
+  FileManager(this.filename);
+
+  Future<String> get _localPath async {
+    final directory = await getApplicationDocumentsDirectory();
+    return directory.path;
+  }
+
+  Future<File> _localFile(String filename) async {
+    final path = await _localPath;
+    return File('$path/$filename');
+  }
+
+  Future<void> writeStops(List<Stop> stops) async {
+    // TODO: Read already saved stops
+    // TODO: Filter out stops older than 30 days
+    // TODO: Write recent stops and the stops from argument to disk
+    List jsonStops = stops.map((s) => s.toJson()).toList();
+    String stopsString = json.encode(jsonStops);
+    File f = await _localFile(filename);
+    f.writeAsString(stopsString);
+  }
+
+  Future<List<Stop>> readStops() async {
+    File f = await _localFile(filename);
+    String stopsAsString = await f.readAsString();
+    String stopsJsonEncoded = json.encode(stopsAsString);
+    print('Read stops enoded json: ${stopsJsonEncoded}');
+    var decodedJson = json.decode(stopsJsonEncoded);
+    print('Read stops decoded json: ${decodedJson}');
+    decodedJson = json.decode(decodedJson);
+    print('Read stops decoded json: ${decodedJson}');
+    print('Type: ${decodedJson.runtimeType}');
+    List<Stop> stops = [];
+
+    for (var x in decodedJson) {
+      stops.add(Stop.fromJson(x));
+    }
+
+    return stops;
+  }
+}
+
 void printMatrix(List<List> m) {
   for (List row in m) {
     String s = '';

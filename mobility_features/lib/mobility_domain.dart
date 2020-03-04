@@ -36,6 +36,14 @@ class SingleLocationPoint {
 
   SingleLocationPoint(this._location, this._datetime, {this.speed});
 
+  Location get location => _location;
+
+  DateTime get datetime => _datetime;
+
+  Map<String, dynamic> toJson() =>
+      {'location': location.toJson(), 'datetime': datetime.toIso8601String()};
+
+  /// Used for reading data from disk, not gonna be used in production
   factory SingleLocationPoint.fromMap(Map<String, dynamic> x,
       {int hourOffset = 0}) {
     /// Parse, i.e. perform type check
@@ -51,17 +59,9 @@ class SingleLocationPoint {
   factory SingleLocationPoint.fromJson(Map<String, dynamic> json) {
     /// Parse, i.e. perform type check
     Location loc = Location.fromJson(json['location']);
-    DateTime dt = json['datetime'];
+    DateTime dt = DateTime.parse(json['datetime']);
     return SingleLocationPoint(loc, dt);
   }
-
-  Location get location => _location;
-
-  DateTime get datetime => _datetime;
-
-  Map<String, dynamic> toJson() =>
-      {'location': location.toJson(), 'datetime': datetime};
-
   @override
   String toString() {
     return '$_location [$_datetime]';
