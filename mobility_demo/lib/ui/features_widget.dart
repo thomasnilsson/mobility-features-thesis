@@ -57,7 +57,7 @@ class _FeatureWidgetState extends State<StateFulFeatureWidget> {
       _content.add('totalDistanceDaily: ${_f.totalDistanceDaily}');
       _content.add('numberOfClustersDaily: ${_f.numberOfClustersDaily}');
       _content.add('normalizedEntropyDaily: ${_f.normalizedEntropyDaily}');
-      _content.add('routineIndex: ${_f.routineIndex}');
+      _content.add('routineIndex: ${_f.routineIndexOld}');
       _content.add('-' * 50);
 
       for (var x in _f.stopsOnDate) {

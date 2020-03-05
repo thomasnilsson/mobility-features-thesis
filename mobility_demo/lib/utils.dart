@@ -9,6 +9,7 @@ class FileUtil {
 
   Future<File> get locationDataFile async {
     final path = await _localPath;
+    print('Local path: ${path}');
     String time = DateTime.now().toString();
     String fileName = '$path/location_data.json';
     return File(fileName);
@@ -19,6 +20,12 @@ class FileUtil {
     // Write the file.
     contentsFile.writeAsString('${json.encode(d)}\n', mode: FileMode.append);
     return contentsFile;
+  }
+
+  Future<void> flush() async {
+    File contentsFile = await locationDataFile;
+    // Write the file.
+    contentsFile.writeAsString('', mode: FileMode.write, flush: true);
   }
 
   Map<String, String> decode(String s) {
@@ -46,5 +53,42 @@ class FileUtil {
       print('Maps length: ${maps.length}');
     });
     return maps;
+  }
+
+  Future<File> writeSingleLocationPoint(SingleLocationPoint p) async {
+    File contentsFile = await locationDataFile;
+    // Write the file.
+    String content = '${json.encode(p.toJson())}\n';
+    print('Content: $content');
+    contentsFile.writeAsString(content, mode: FileMode.append);
+    return contentsFile;
+  }
+
+  Future<List<SingleLocationPoint>> readLocationData() async {
+    List<SingleLocationPoint> points = [];
+    final file = await locationDataFile;
+
+    await file.readAsString().then((String contents) {
+      List<String> tokens = contents.split('\n');
+      tokens.removeLast(); // last element is the empty string
+      print('Tokens length: ${tokens.length}');
+
+      for (String t in tokens) {
+//        var enc = json.encode(t);
+//        var dec1 = json.decode(enc);
+        var dec2 = json.decode(t);
+        SingleLocationPoint p = SingleLocationPoint.fromJson(dec2);
+        points.add(p);
+      }
+    });
+    return points;
+  }
+
+  void printList(List l) {
+    for (int i = 0; i < l.length; i++) {
+      print('[$i] ${l[i]}');
+    }
+
+    print('-' * 50);
   }
 }

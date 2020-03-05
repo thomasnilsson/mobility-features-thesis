@@ -119,19 +119,36 @@ class FileManager {
     f.writeAsString(stopsString);
   }
 
+  Future<List<SingleLocationPoint>> readSingleDataPoints() async {
+    File f = await _localFile(filename);
+    String stopsAsString = await f.readAsString();
+    List decodedJsonList = json.decode(stopsAsString);
+    List<SingleLocationPoint> points = [];
+
+    for (var x in decodedJsonList) {
+      points.add(SingleLocationPoint.fromJson(x));
+    }
+
+    return points;
+  }
+
   Future<List<Stop>> readStops() async {
     File f = await _localFile(filename);
     String stopsAsString = await f.readAsString();
-    String stopsJsonEncoded = json.encode(stopsAsString);
-    print('Read stops enoded json: ${stopsJsonEncoded}');
-    var decodedJson = json.decode(stopsJsonEncoded);
-    print('Read stops decoded json: ${decodedJson}');
-    decodedJson = json.decode(decodedJson);
-    print('Read stops decoded json: ${decodedJson}');
-    print('Type: ${decodedJson.runtimeType}');
+
+//    String stopsJsonEncoded = json.encode(stopsAsString);
+//    print('Read stops enoded json: ${stopsJsonEncoded}');
+
+//    String decodedJson = json.decode(stopsJsonEncoded);
+//    print('Read stops decoded json: ${decodedJson}');
+
+//    List decodedJsonList = json.decode(decodedJson);
+//    print('Read stops decoded json: ${decodedJson}');
+
+    List decodedJsonList = json.decode(stopsAsString);
     List<Stop> stops = [];
 
-    for (var x in decodedJson) {
+    for (var x in decodedJsonList) {
       stops.add(Stop.fromJson(x));
     }
 

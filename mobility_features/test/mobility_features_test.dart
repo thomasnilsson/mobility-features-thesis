@@ -65,44 +65,40 @@ void main() async {
   });
 
   test('Serialization', () async {
+    /// Create a [SingleLocationPoint] manually
     SingleLocationPoint p =
     SingleLocationPoint(Location(12.345, 98.765), DateTime.now());
 
+    /// Serialize it
     var toJson = p.toJson();
+    print(toJson);
 
+    /// Deserialize it
     SingleLocationPoint fromJson = SingleLocationPoint.fromJson(toJson);
+    print(fromJson);
 
+    /// Create a [Stop] manually
     Stop s = Stop([p, p, p], placeId: 2);
 
+    /// Serialize it
     var jsonStop = s.toJson();
+
+    /// Deserialize it
     Stop stopFromJson = Stop.fromJson(jsonStop);
 
+    /// Make a [List] of stops
     List jsonStops = [stopFromJson, stopFromJson, stopFromJson]
         .map((s) => s.toJson())
         .toList();
 
+    /// Serialize it
     String jsonStringStops = json.encode(jsonStops);
 
+    /// Deserialize it
     List decoded = json.decode(jsonStringStops);
     List<Stop> stopsDecoded = decoded.map((d) => Stop.fromJson(d)).toList();
     printList(decoded);
     printList(stopsDecoded);
-  });
-
-  test('Serialization', () async {
-    SingleLocationPoint p =
-    SingleLocationPoint(Location(12.345, 98.765), DateTime.now());
-    Stop s = Stop([p, p, p], placeId: 2);
-    List<Stop> stops = [s, s, s];
-
-    List jsonStops = stops
-        .map((s) => s.toJson())
-        .toList();
-
-    FileManager fm = FileManager('stops.json');
-    await fm.writeStops(stops);
-    List<Stop> stopsFromFile = await fm.readStops();
-    printList(stopsFromFile);
   });
 
   test('Incremental RI', () async {

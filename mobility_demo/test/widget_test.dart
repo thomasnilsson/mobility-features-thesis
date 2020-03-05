@@ -11,6 +11,29 @@ import 'package:mobility_demo/mobility.dart';
 
 import 'package:mobility_demo/main.dart';
 
-void main() {
 
+void printList(List l) {
+  for (int i = 0; i < l.length; i++) {
+    print('[$i] ${l[i]}');
+  }
+
+  print('-' * 50);
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  test('Serialization', () async {
+    SingleLocationPoint p =
+        SingleLocationPoint(Location(12.345, 98.765), DateTime.now());
+    Stop s = Stop([p, p, p], placeId: 2);
+    List<Stop> stops = [s, s, s];
+
+    List jsonStops = stops.map((s) => s.toJson()).toList();
+
+    FileManager fm = FileManager('stops.json');
+    await fm.writeStops(stops);
+    List<Stop> stopsFromFile = await fm.readStops();
+    printList(stopsFromFile);
+  });
 }

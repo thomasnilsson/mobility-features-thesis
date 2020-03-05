@@ -19,7 +19,7 @@ class Location {
   double get longitude => _longitude;
 
   Map<String, dynamic> toJson() =>
-      {'latitude': latitude, 'longitude': longitude};
+      {"latitude": latitude, "longitude": longitude};
 
   @override
   String toString() {
@@ -40,8 +40,10 @@ class SingleLocationPoint {
 
   DateTime get datetime => _datetime;
 
-  Map<String, dynamic> toJson() =>
-      {'location': location.toJson(), 'datetime': datetime.toIso8601String()};
+  Map<String, dynamic> toJson() => {
+        "location": location.toJson(),
+        "datetime": json.encode(datetime.millisecondsSinceEpoch)
+      };
 
   /// Used for reading data from disk, not gonna be used in production
   factory SingleLocationPoint.fromMap(Map<String, dynamic> x,
@@ -59,9 +61,11 @@ class SingleLocationPoint {
   factory SingleLocationPoint.fromJson(Map<String, dynamic> json) {
     /// Parse, i.e. perform type check
     Location loc = Location.fromJson(json['location']);
-    DateTime dt = DateTime.parse(json['datetime']);
+    int millis = int.parse(json['datetime']);
+    DateTime dt = DateTime.fromMillisecondsSinceEpoch(millis);
     return SingleLocationPoint(loc, dt);
   }
+
   @override
   String toString() {
     return '$_location [$_datetime]';
@@ -96,7 +100,7 @@ class Stop {
           departure.millisecondsSinceEpoch - arrival.millisecondsSinceEpoch);
 
   Map<String, dynamic> toJson() =>
-      {'points': points.map((p) => p.toJson()).toList(), 'placeId': placeId};
+      {"points": points.map((p) => p.toJson()).toList(), "placeId": placeId};
 
   factory Stop.fromJson(Map<String, dynamic> json) {
     List<SingleLocationPoint> decodedPoints = (json['points'] as List)

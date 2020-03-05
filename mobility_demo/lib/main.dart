@@ -47,24 +47,29 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void init() async {
+    SingleLocationPoint p =
+        SingleLocationPoint(Location(12.345, 98.765), DateTime.now());
+    Stop s = Stop([p, p, p], placeId: 2);
+    List<Stop> stops = [s, s, s];
+
+    List jsonStops = stops.map((s) => s.toJson()).toList();
+
+    FileManager fm = FileManager('stops.json');
+    await fm.writeStops(stops);
+    List<Stop> stopsFromFile = await fm.readStops();
+    FileUtil().printList(stopsFromFile);
+
     await _loadDataset();
     await _loadFeatures();
   }
 
   Future _loadDataset() async {
-    dataset = [];
-    await FileUtil().read().then((List<Map<String, String>> jsonContent) {
-      for (Map<String, String> m in jsonContent) {
-        SingleLocationPoint d = SingleLocationPoint.fromJson(m);
-        dataset.add(d);
-      }
-    });
+    dataset = await FileUtil().readLocationData();
 
     _children[0] = DataWidget(dataset);
   }
 
   Future _loadFeatures() async {
-    // Port where we will receive our answer to nth prime.
     // From isolate to main isolate.
     ReceivePort receivePort = ReceivePort();
     await Isolate.spawn(calcFeaturesAsync, receivePort.sendPort);
@@ -80,23 +85,16 @@ class _MyHomePageState extends State<MyHomePage> {
   void _initLocation() async {
     await geo.isLocationServiceEnabled().then((response) {
       if (response) {
-        _startStreaming();
+        geo.getPositionStream().listen((Position d) async {
+          print('-' * 50);
+          SingleLocationPoint p = SingleLocationPoint(
+              Location(d.latitude, d.longitude), d.timestamp);
+          print(p);
+          FileUtil().writeSingleLocationPoint(p);
+        });
       } else {
         print('Location service not enabled');
       }
-    });
-  }
-
-  void _startStreaming() {
-    geo.getPositionStream().listen((Position d) async {
-      print('-' * 50);
-      Map<String, String> x = {
-        'lat': d.latitude.toString(),
-        'lon': d.longitude.toString(),
-        'datetime': d.timestamp.millisecondsSinceEpoch.toString()
-      };
-      print(x);
-      FileUtil().write(x);
     });
   }
 
@@ -144,6 +142,10 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  void _flushFile() {
+    FileUtil().flush();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -158,6 +160,10 @@ class _MyHomePageState extends State<MyHomePage> {
           IconButton(
             icon: Icon(Icons.update),
             onPressed: _loadFeatures,
+          ),
+          IconButton(
+            icon: Icon(Icons.delete),
+            onPressed: _flushFile,
           ),
         ],
       ),
