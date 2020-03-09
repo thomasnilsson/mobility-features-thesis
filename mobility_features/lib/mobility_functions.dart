@@ -72,26 +72,37 @@ extension CompareDates on DateTime {
   }
 }
 
-extension NumList<num> on List<num> {
-  int get argmax {
-    double maxVal = -double.infinity;
-    int i = 0;
+int argmaxDouble(List<double> list) {
+  double maxVal = -double.infinity;
+  int i = 0;
 
-    for (int j = 0; j < this.length; j++) {
-      if (this[j] as double > maxVal) {
-        maxVal = this[j] as double;
-        i = j;
-      }
+  for (int j = 0; j < list.length; j++) {
+    if (list[j]  > maxVal) {
+      maxVal = list[j];
+      i = j;
     }
-    return i;
   }
+  return i;
 }
+
+int argmaxInt(List<int> list) {
+  int maxVal = -2147483648;
+  int i = 0;
+
+  for (int j = 0; j < list.length; j++) {
+    if (list[j]  > maxVal) {
+      maxVal = list[j];
+      i = j;
+    }
+  }
+  return i;
+}
+
 
 extension LocationList on List<SingleLocationPoint> {
   List<Location> get locations =>
-      this.map((SingleLocationPoint d) => d._location).toList();
+      this.map((SingleLocationPoint d) => d.location).toList();
 }
-
 
 
 class FileManager {

@@ -19,7 +19,7 @@ class Preprocessor {
     return data.map((d) => (d._datetime.date)).toSet();
   }
 
-  Features featuresByDate(DateTime date) {
+  Features getFeatures({DateTime date}) {
     List<Stop> stops = [];
 
     for (List<SingleLocationPoint> d in dataGroupedByDates) {
@@ -30,6 +30,9 @@ class Preprocessor {
     List<Place> places = _findPlaces(stops);
     List<Move> moves = _findMoves(data, stops);
 
+    if (date == null) {
+      date = DateTime.now();
+    }
     return Features(date, uniqueDates, data, stops, places, moves);
   }
 
@@ -116,7 +119,6 @@ class Preprocessor {
     return places;
   }
 
-
   List<Move> _findMoves(List<SingleLocationPoint> data, List<Stop> stops) {
     List<Move> moves = [];
 
@@ -126,8 +128,10 @@ class Preprocessor {
       Stop next = stops[i + 1];
 
       /// Extract all points (including the 'loose' points) between the two stops
-      List<SingleLocationPoint> pointsInBetween = data.where(
-          (d) => cur.departure.leq(d._datetime) && d._datetime.leq(next.arrival)).toList();
+      List<SingleLocationPoint> pointsInBetween = data
+          .where((d) =>
+              cur.departure.leq(d._datetime) && d._datetime.leq(next.arrival))
+          .toList();
 
       moves.add(Move(cur, next, pointsInBetween));
     }
@@ -136,7 +140,7 @@ class Preprocessor {
     return moves.where((m) => m.duration >= moveDuration).toList();
   }
 
-  // Merging noisy stops, not working as intended right now
+// Merging noisy stops, not working as intended right now
 //  List<Stop> _mergeStops(List<Stop> stops) {
 //    /// Check if merge applicable
 //    if (stops.length < 2) {

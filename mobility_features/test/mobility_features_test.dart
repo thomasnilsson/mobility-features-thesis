@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'dart:convert';
 
 void main() async {
+  print('Loading data (before tests)... ');
   List<SingleLocationPoint> data = await Dataset().exampleData;
   printList(data.sublist(0, 10));
 
@@ -28,9 +29,11 @@ void main() async {
   });
 
   test('Run feature extraction', () async {
-    DateTime date = DateTime.now();
+    /// TODO: MOCK DATE
+    DateTime date = DateTime(2020, 02, 17);
     Preprocessor p = Preprocessor(data, moveDuration: Duration(minutes: 3));
-    Features f = p.featuresByDate(date);
+
+    Features f = p.getFeatures(date: date);
 
     print('Stops found:');
     print('*' * 50);
@@ -54,6 +57,8 @@ void main() async {
     print('Total Distance (meters): ${f.totalDistance}');
     print('Homestay (%): ${f.homeStay}');
     print('-' * 50);
+
+
     print('Daily Number of Clusters: ${f.numberOfClustersDaily}');
     print('Daily Location Variance: ${f.locationVarianceDaily}');
     print('Daily Entropy: ${f.entropyDaily}');
@@ -104,7 +109,7 @@ void main() async {
   test('Incremental RI', () async {
     DateTime date = DateTime(2020, 02, 17);
     Preprocessor p = Preprocessor(data, moveDuration: Duration(minutes: 3));
-    Features f = p.featuresByDate(date);
+    Features f = p.getFeatures(date: date);
     var stops = f.stops;
   });
 }

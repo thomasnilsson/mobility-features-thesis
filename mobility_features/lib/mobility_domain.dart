@@ -188,3 +188,71 @@ class Move {
     return 'Move: ${_stopFrom._centroid} --> ${_stopTo._centroid}, (Place ${_stopFrom.placeId} --> ${_stopTo.placeId}) (Time: $duration) (Points: ${_pointChain.length})';
   }
 }
+
+
+/// TODO: Make a getter in stop, easier
+class StopHours {
+  int placeId;
+  List<double> hourSlots;
+
+  StopHours(this.placeId, this.hourSlots);
+
+  factory StopHours.fromStop(Stop s) {
+    /// Start and end should be on the same date!
+    int start = s.arrival.hour;
+    int end = s.departure.hour;
+
+    if (s.departure.date != s.arrival.date) {
+      throw Exception(
+          'Arrival and Departure should be on the same date, but was not! $s');
+    }
+
+    List<double> hours = List<double>.filled(HOURS_IN_A_DAY, 0.0);
+
+    /// Set the corresponding hour slots to 1
+    for (int i = start; i <= end; i++) {
+      hours[i] = 1.0;
+    }
+
+
+    return StopHours(s.placeId, hours);
+  }
+}
+
+class HourMatrix {
+  static const int HOURS_IN_A_DAY = 24;
+
+  List<Stop> _stops;
+  int _numberOfPlaces;
+  List<List<double>> _matrix;
+
+  HourMatrix(this._stops, this._numberOfPlaces) {
+    /// Init 2d matrix with 24 rows and cols equal to number of places
+    _matrix = new List.generate(
+        HOURS_IN_A_DAY, (_) => new List<double>.filled(_numberOfPlaces, 0.0));
+
+    for (int j = 0; j < _numberOfPlaces; j++) {
+      List<Stop> stopsAtPlace = _stops.where((s) => (s.placeId) == j).toList();
+
+      for (Stop s in stopsAtPlace) {
+        StopHours sr = StopHours.fromStop(s);
+
+        /// For each hour of the day, add the hours from the StopRow to the matrix
+        for (int i = 0; i < HOURS_IN_A_DAY; i++) {
+          _matrix[i][j] += sr.hourSlots[i];
+        }
+      }
+    }
+  }
+
+  /// Features
+  int get homePlaceId {
+    List<List<double>> nightHours = _matrix.sublist(0, 6);
+    List<double> nightHoursAtPlaces =
+        nightHours.map((h) => h.reduce((a, b) => a + b)).toList();
+    return argmaxDouble(nightHoursAtPlaces);
+  }
+
+  /// TODO: calculate overlap between two matrices
+
+}
