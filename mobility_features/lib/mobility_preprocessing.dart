@@ -16,7 +16,7 @@ class Preprocessor {
 
   /// Extracts unique dates in the dataset.
   Set<DateTime> get uniqueDates {
-    return data.map((d) => (d._datetime.date)).toSet();
+    return data.map((d) => (d._datetime.zeroTime)).toSet();
   }
 
   Features getFeatures({DateTime date}) {
@@ -42,7 +42,7 @@ class Preprocessor {
     List<List<SingleLocationPoint>> grouped = [];
 
     for (DateTime _date in uniqueDates) {
-      grouped.add(data.where((d) => (d._datetime.date == _date)).toList());
+      grouped.add(data.where((d) => (d._datetime.zeroTime == _date)).toList());
     }
     return grouped;
   }

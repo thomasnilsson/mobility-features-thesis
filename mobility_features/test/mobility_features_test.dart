@@ -11,7 +11,7 @@ void main() async {
   test('Datetime extension', () async {
     DateTime d1 = DateTime.parse('2020-02-12 09:30:00.000');
     DateTime d2 = DateTime.parse('2020-02-12 13:31:00.400');
-    assert(d1.date == d2.date);
+    assert(d1.zeroTime == d2.zeroTime);
   });
 
   test('Get unique dates', () async {
@@ -66,7 +66,7 @@ void main() async {
     print('Daily Total Distance (meters): ${f.totalDistanceDaily}');
     print('Daily Homestay (%): ${f.homeStayDaily}');
 
-    print('Routine index (%): ${f.routineIndexOld}');
+    print('Routine index (%): ${f.routineIndex}');
   });
 
   test('Serialization', () async {

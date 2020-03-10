@@ -17,6 +17,8 @@ extension on double {
   double get radiansFromDegrees => this * (pi / 180.0);
 }
 
+
+
 class Distance {
   static double fromLocation(Location a, Location b) {
     return fromDouble([a._latitude, a._longitude], [b._latitude, b._longitude]);
@@ -67,7 +69,7 @@ extension CompareDates on DateTime {
     return this.isBefore(other) || this.isAtSameMomentAs(other);
   }
 
-  DateTime get date {
+  DateTime get zeroTime {
     return DateTime(this.year, this.month, this.day);
   }
 }

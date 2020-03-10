@@ -130,7 +130,7 @@ class Place {
       _stops.map((s) => s.duration).reduce((a, b) => a + b);
 
   Duration durationForDate(DateTime d) => _stops
-      .where((s) => s.arrival.date == d)
+      .where((s) => s.arrival.zeroTime == d)
       .map((s) => s.duration)
       .fold(Duration(), (a, b) => a + b);
 
@@ -189,7 +189,6 @@ class Move {
   }
 }
 
-
 /// TODO: Make a getter in stop, easier
 class StopHours {
   int placeId;
@@ -202,7 +201,7 @@ class StopHours {
     int start = s.arrival.hour;
     int end = s.departure.hour;
 
-    if (s.departure.date != s.arrival.date) {
+    if (s.departure.zeroTime != s.arrival.zeroTime) {
       throw Exception(
           'Arrival and Departure should be on the same date, but was not! $s');
     }
@@ -213,7 +212,6 @@ class StopHours {
     for (int i = start; i <= end; i++) {
       hours[i] = 1.0;
     }
-
 
     return StopHours(s.placeId, hours);
   }
@@ -245,6 +243,8 @@ class HourMatrix {
     }
   }
 
+  List<List<double>> get matrix => _matrix;
+
   /// Features
   int get homePlaceId {
     List<List<double>> nightHours = _matrix.sublist(0, 6);
@@ -253,6 +253,21 @@ class HourMatrix {
     return argmaxDouble(nightHoursAtPlaces);
   }
 
-  /// TODO: calculate overlap between two matrices
+  /// Calculates the error between two matrices
+  double computeError(HourMatrix other) {
+    /// Check that dimensions match
+    assert(other.matrix.length == HOURS_IN_A_DAY &&
+        other.matrix.first.length == _numberOfPlaces);
+
+    /// Count errors
+    double error = 0.0;
+    for (int i = 0; i < HOURS_IN_A_DAY; i++) {
+      for (int j = 0; j < _numberOfPlaces; j++) {
+        error += (this.matrix[i][j] - other.matrix[i][j]).abs();
+      }
+    }
+    /// Compute average
+    return error / (HOURS_IN_A_DAY * _numberOfPlaces);
+  }
 
 }
