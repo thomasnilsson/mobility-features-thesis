@@ -1,5 +1,7 @@
 part of mobility_features_lib;
 
+const int HOURS_IN_A_DAY = 24;
+
 /// A [Location] object contains a latitude and longitude
 /// and represents a 2D spatial coordinates
 class Location {
@@ -46,15 +48,13 @@ class SingleLocationPoint {
       };
 
   /// Used for reading data from disk, not gonna be used in production
-  factory SingleLocationPoint.fromMap(Map<String, dynamic> x,
-      {int hourOffset = 0}) {
+  factory SingleLocationPoint.fromMap(Map<String, dynamic> x) {
     /// Parse, i.e. perform type check
     double lat = double.parse(x['lat'].toString());
     double lon = double.parse(x['lon'].toString());
     int timeInMillis = int.parse(x['datetime'].toString());
 
-    DateTime _datetime = DateTime.fromMillisecondsSinceEpoch(timeInMillis)
-        .add(Duration(hours: hourOffset));
+    DateTime _datetime = DateTime.fromMillisecondsSinceEpoch(timeInMillis);
     return SingleLocationPoint(Location(lat, lon), _datetime);
   }
 
@@ -81,16 +81,39 @@ class Stop {
   List<SingleLocationPoint> points;
   Location _centroid;
   int placeId;
-  DateTime arrival, departure;
+  DateTime _arrival, _departure;
 
-  Stop(this.points, {this.placeId = -1}) {
+  Stop({this.points, this.placeId = -1}) {
     _centroid = calculateCentroid(points.locations);
 
     /// Find min/max time
-    arrival = DateTime.fromMillisecondsSinceEpoch(
+    _arrival = DateTime.fromMillisecondsSinceEpoch(
         points.map((d) => d._datetime.millisecondsSinceEpoch).reduce(min));
-    departure = DateTime.fromMillisecondsSinceEpoch(
+    _departure = DateTime.fromMillisecondsSinceEpoch(
         points.map((d) => d._datetime.millisecondsSinceEpoch).reduce(max));
+  }
+
+  DateTime get departure => _departure;
+
+  DateTime get arrival => _arrival;
+
+  List<double> get hourSlots {
+    /// Start and end should be on the same date!
+    int start = arrival.hour;
+    int end = departure.hour;
+
+    if (departure.zeroTime != arrival.zeroTime) {
+      throw Exception(
+          'Arrival and Departure should be on the same date, but was not! $this');
+    }
+
+    List<double> hours = List<double>.filled(HOURS_IN_A_DAY, 0.0);
+
+    /// Set the corresponding hour slots to 1
+    for (int i = start; i <= end; i++) {
+      hours[i] = 1.0;
+    }
+    return hours;
   }
 
   Location get centroid => _centroid;
@@ -99,14 +122,21 @@ class Stop {
       milliseconds:
           departure.millisecondsSinceEpoch - arrival.millisecondsSinceEpoch);
 
-  Map<String, dynamic> toJson() =>
-      {"points": points.map((p) => p.toJson()).toList(), "placeId": placeId};
+  Map<String, dynamic> toJson() => {
+        "centroid": centroid.toJson(),
+        "place_id": placeId,
+        "arrival": arrival.millisecondsSinceEpoch,
+        "departure": departure.millisecondsSinceEpoch
+      };
 
+  /// TODO: Change constructor, this is a fucking mess.....
   factory Stop.fromJson(Map<String, dynamic> json) {
-    List<SingleLocationPoint> decodedPoints = (json['points'] as List)
-        .map((m) => SingleLocationPoint.fromJson(m))
-        .toList();
-    return Stop(decodedPoints, placeId: json['placeId']);
+    Stop s = Stop();
+    s._centroid = Location.fromJson(json['centroid']);
+    s._arrival = json['arrival'];
+    s._departure = json['departure'];
+    s.placeId = json['place_id'];
+    return s;
   }
 
   @override
@@ -153,16 +183,16 @@ class Place {
 /// the stops, the duration of the move, and thereby also the average travel speed.
 class Move {
   Stop _stopFrom, _stopTo;
-  List<SingleLocationPoint> _pointChain;
+  List<SingleLocationPoint> _points;
 
-  Move(this._stopFrom, this._stopTo, this._pointChain);
+  Move(this._stopFrom, this._stopTo, this._points);
 
   /// The haversine distance through all the points between the two stops
   double get distance {
     double d = 0.0;
-    for (int i = 0; i < _pointChain.length - 1; i++) {
-      d += Distance.fromLocation(
-          _pointChain[i]._location, _pointChain[i + 1]._location);
+    for (int i = 0; i < _points.length - 1; i++) {
+      d +=
+          Distance.fromLocation(_points[i]._location, _points[i + 1]._location);
     }
     return d;
   }
@@ -185,41 +215,11 @@ class Move {
 
   @override
   String toString() {
-    return 'Move: ${_stopFrom._centroid} --> ${_stopTo._centroid}, (Place ${_stopFrom.placeId} --> ${_stopTo.placeId}) (Time: $duration) (Points: ${_pointChain.length})';
-  }
-}
-
-/// TODO: Make a getter in stop, easier
-class StopHours {
-  int placeId;
-  List<double> hourSlots;
-
-  StopHours(this.placeId, this.hourSlots);
-
-  factory StopHours.fromStop(Stop s) {
-    /// Start and end should be on the same date!
-    int start = s.arrival.hour;
-    int end = s.departure.hour;
-
-    if (s.departure.zeroTime != s.arrival.zeroTime) {
-      throw Exception(
-          'Arrival and Departure should be on the same date, but was not! $s');
-    }
-
-    List<double> hours = List<double>.filled(HOURS_IN_A_DAY, 0.0);
-
-    /// Set the corresponding hour slots to 1
-    for (int i = start; i <= end; i++) {
-      hours[i] = 1.0;
-    }
-
-    return StopHours(s.placeId, hours);
+    return 'Move: ${_stopFrom._centroid} --> ${_stopTo._centroid}, (Place ${_stopFrom.placeId} --> ${_stopTo.placeId}) (Time: $duration) (Points: ${_points.length})';
   }
 }
 
 class HourMatrix {
-  static const int HOURS_IN_A_DAY = 24;
-
   List<Stop> _stops;
   int _numberOfPlaces;
   List<List<double>> _matrix;
@@ -233,11 +233,9 @@ class HourMatrix {
       List<Stop> stopsAtPlace = _stops.where((s) => (s.placeId) == j).toList();
 
       for (Stop s in stopsAtPlace) {
-        StopHours sr = StopHours.fromStop(s);
-
         /// For each hour of the day, add the hours from the StopRow to the matrix
         for (int i = 0; i < HOURS_IN_A_DAY; i++) {
-          _matrix[i][j] += sr.hourSlots[i];
+          _matrix[i][j] += s.hourSlots[i];
         }
       }
     }
@@ -266,8 +264,8 @@ class HourMatrix {
         error += (this.matrix[i][j] - other.matrix[i][j]).abs();
       }
     }
+
     /// Compute average
     return error / (HOURS_IN_A_DAY * _numberOfPlaces);
   }
-
 }

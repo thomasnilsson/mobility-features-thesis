@@ -5,46 +5,44 @@ part of mobility_features_lib;
 class Preprocessor {
   double stopRadius, placeRadius, moveRadius = 50;
   Duration stopDuration, moveDuration;
-  List<SingleLocationPoint> data;
 
-  Preprocessor(this.data,
+  List<SingleLocationPoint> _data;
+  List<Stop> _stops = [];
+  List<Move> _moves = [];
+  List<Place> _places = [];
+
+  Preprocessor(this._data,
       {this.stopRadius = 25,
       this.placeRadius = 25,
       this.moveRadius = 50,
       this.stopDuration = const Duration(minutes: 15),
-      this.moveDuration = const Duration(minutes: 5)});
+      this.moveDuration = const Duration(minutes: 5)}) {
 
-  /// Extracts unique dates in the dataset.
-  Set<DateTime> get uniqueDates {
-    return data.map((d) => (d._datetime.zeroTime)).toSet();
-  }
-
-  Features getFeatures({DateTime date}) {
-    List<Stop> stops = [];
-
-    for (List<SingleLocationPoint> d in dataGroupedByDates) {
-      List<Stop> s = _findStops(d);
-      stops.addAll(s);
-    }
-
-    List<Place> places = _findPlaces(stops);
-    List<Move> moves = _findMoves(data, stops);
-
-    if (date == null) {
-      date = DateTime.now();
-    }
-    return Features(date, uniqueDates, data, stops, places, moves);
-  }
-
-  /// Groups the dataset by dates.
-  /// This is necessary since data is processed on a daily basis.
-  List<List<SingleLocationPoint>> get dataGroupedByDates {
+    /// Group data by dates
     List<List<SingleLocationPoint>> grouped = [];
 
     for (DateTime _date in uniqueDates) {
-      grouped.add(data.where((d) => (d._datetime.zeroTime == _date)).toList());
+      grouped.add(_data.where((d) => (d._datetime.zeroTime == _date)).toList());
     }
-    return grouped;
+
+    /// Calculate stops, places and moves for each date
+    for (List<SingleLocationPoint> d in grouped) {
+      _stops.addAll(_findStops(d));
+    }
+
+    _places = _findPlaces(_stops);
+    _moves = _findMoves(_data, _stops);
+  }
+
+  /// Getters
+  List<SingleLocationPoint> get data => _data;
+  List<Stop> get stops =>_stops;
+  List<Move> get moves => _moves;
+  List<Place> get places => _places;
+
+  /// Extracts unique dates in the dataset.
+  Set<DateTime> get uniqueDates {
+    return _data.map((d) => (d._datetime.zeroTime)).toSet();
   }
 
   /// Find the stops in a sequence of gps data points
@@ -67,7 +65,7 @@ class Preprocessor {
         cluster = data.sublist(i, j);
         centroid = calculateCentroid(cluster.locations);
       }
-      stops.add(Stop(cluster));
+      stops.add(Stop(points: cluster));
 
       /// Update i, such that we no longer look at
       /// the previously considered data points

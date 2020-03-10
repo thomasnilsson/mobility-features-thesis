@@ -21,19 +21,12 @@ void main() async {
     printList(p.uniqueDates.toList());
   });
 
-  test('Group data by date', () async {
-    final p = Preprocessor(data, moveDuration: Duration(minutes: 3));
-    print('Data Grouped by dates:');
-    print('*' * 50);
-    printList(p.dataGroupedByDates.map((arr) => arr.length).toList());
-  });
-
   test('Run feature extraction', () async {
     /// TODO: MOCK DATE
     DateTime date = DateTime(2020, 02, 17);
     Preprocessor p = Preprocessor(data, moveDuration: Duration(minutes: 3));
 
-    Features f = p.getFeatures(date: date);
+    Features f = Features(date, p);
 
     print('Stops found:');
     print('*' * 50);
@@ -58,7 +51,6 @@ void main() async {
     print('Homestay (%): ${f.homeStay}');
     print('-' * 50);
 
-
     print('Daily Number of Clusters: ${f.numberOfClustersDaily}');
     print('Daily Location Variance: ${f.locationVarianceDaily}');
     print('Daily Entropy: ${f.entropyDaily}');
@@ -72,7 +64,7 @@ void main() async {
   test('Serialization', () async {
     /// Create a [SingleLocationPoint] manually
     SingleLocationPoint p =
-    SingleLocationPoint(Location(12.345, 98.765), DateTime.now());
+        SingleLocationPoint(Location(12.345, 98.765), DateTime.now());
 
     /// Serialize it
     var toJson = p.toJson();
@@ -83,7 +75,7 @@ void main() async {
     print(fromJson);
 
     /// Create a [Stop] manually
-    Stop s = Stop([p, p, p], placeId: 2);
+    Stop s = Stop(points: [p, p, p], placeId: 2);
 
     /// Serialize it
     var jsonStop = s.toJson();
@@ -107,9 +99,25 @@ void main() async {
   });
 
   test('Incremental RI', () async {
-    DateTime date = DateTime(2020, 02, 17);
-    Preprocessor p = Preprocessor(data, moveDuration: Duration(minutes: 3));
-    Features f = p.getFeatures(date: date);
-    var stops = f.stops;
+    List<DateTime> dates = [
+      DateTime(2020, 02, 12),
+      DateTime(2020, 02, 13),
+      DateTime(2020, 02, 14),
+      DateTime(2020, 02, 15),
+      DateTime(2020, 02, 16),
+      DateTime(2020, 02, 17),
+    ];
+
+    List<Stop> stops = [];
+
+    for (DateTime _date in dates) {
+      List<SingleLocationPoint> d =
+          data.where((d) => (d.datetime.zeroTime == _date)).toList();
+
+      Preprocessor p = Preprocessor(d, moveDuration: Duration(minutes: 3));
+      Features f = Features(_date, p);
+      stops.addAll(f.stops);
+
+    }
   });
 }

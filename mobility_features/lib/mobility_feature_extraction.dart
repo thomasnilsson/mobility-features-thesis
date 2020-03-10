@@ -1,19 +1,23 @@
 part of mobility_features_lib;
 
-const int HOURS_IN_A_DAY = 24;
-
 class Features {
-  List<SingleLocationPoint> _data, _dataOnDate;
+  Preprocessor _preprocessor;
+  List<SingleLocationPoint> _data, _dataDaily;
   List<Stop> _stops, _stopsDaily;
   List<Place> _places, _placesDaily;
   List<Move> _moves, _movesDaily;
   DateTime _date;
   Set<DateTime> _uniqueDates;
 
-  Features(this._date, this._uniqueDates, this._data, this._stops, this._places,
-      this._moves) {
+  Features(this._date, this._preprocessor) {
+    _data = _preprocessor.data;
+    _stops = _preprocessor.stops;
+    _places = _preprocessor.places;
+    _moves = _preprocessor.moves;
+    _uniqueDates = _preprocessor.uniqueDates;
+
     // TODO: Load stops from disk
-    this._dataOnDate =
+    this._dataDaily =
         _data.where((d) => d.datetime.zeroTime == _date).toList();
     this._stopsDaily =
         _stops.where((d) => d.arrival.zeroTime == _date).toList();
@@ -41,7 +45,7 @@ class Features {
   double get locationVariance => calcLocationVariance(_data);
 
   /// Location variance today
-  double get locationVarianceDaily => calcLocationVariance(_dataOnDate);
+  double get locationVarianceDaily => calcLocationVariance(_dataDaily);
 
   double get entropy => calcEntropy(places.map((p) => p.duration).toList());
 
@@ -60,8 +64,7 @@ class Features {
       moves.map((m) => (m.distance)).fold(0.0, (a, b) => a + b);
 
   /// Total distance travelled in meters for the specified date
-  double get totalDistanceDaily => moves
-      .where((m) => m.stopFrom.arrival.zeroTime == _date)
+  double get totalDistanceDaily => _movesDaily
       .map((m) => (m.distance))
       .fold(0, (a, b) => a + b);
 
@@ -163,6 +166,5 @@ class Features {
 
     return timeSpentAtHome.toDouble() / timeSpentTotal.toDouble();
   }
-
 
 }
