@@ -4,9 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'dart:convert';
 
 void main() async {
-  print('Loading data (before tests)... ');
-  List<SingleLocationPoint> data = await Dataset().exampleData;
-  printList(data.sublist(0, 10));
 
   test('Datetime extension', () async {
     DateTime d1 = DateTime.parse('2020-02-12 09:30:00.000');
@@ -15,6 +12,7 @@ void main() async {
   });
 
   test('Get unique dates', () async {
+    List<SingleLocationPoint> data = await Dataset().exampleData;
     final p = Preprocessor(data, moveDuration: Duration(minutes: 3));
     print('Unique Dates:');
     print('*' * 50);
@@ -22,6 +20,7 @@ void main() async {
   });
 
   test('Run feature extraction', () async {
+    List<SingleLocationPoint> data = await Dataset().exampleData;
     /// TODO: MOCK DATE
     DateTime date = DateTime(2020, 02, 17);
     Preprocessor p = Preprocessor(data, moveDuration: Duration(minutes: 3));
@@ -61,13 +60,13 @@ void main() async {
     print('Routine index (%): ${f.routineIndex}');
   });
 
-  test('Serialization', () async {
+  test('Serialization of stops and moves', () async {
     /// Create a [SingleLocationPoint] manually
-    SingleLocationPoint p =
-        SingleLocationPoint(Location(12.345, 98.765), DateTime.now());
+    SingleLocationPoint p1 =
+        SingleLocationPoint(Location(12.345, 98.765), DateTime(2020, 02, 16));
 
     /// Serialize it
-    var toJson = p.toJson();
+    var toJson = p1.toJson();
     print(toJson);
 
     /// Deserialize it
@@ -75,10 +74,11 @@ void main() async {
     print(fromJson);
 
     /// Create a [Stop] manually
-    Stop s = Stop(points: [p, p, p], placeId: 2);
+    Stop s1 = Stop.fromPoints([p1, p1, p1], placeId: 2);
+    print(s1);
 
     /// Serialize it
-    var jsonStop = s.toJson();
+    var jsonStop = s1.toJson();
 
     /// Deserialize it
     Stop stopFromJson = Stop.fromJson(jsonStop);
@@ -96,9 +96,26 @@ void main() async {
     List<Stop> stopsDecoded = decoded.map((d) => Stop.fromJson(d)).toList();
     printList(decoded);
     printList(stopsDecoded);
+
+    /// Move
+    SingleLocationPoint p2 =
+    SingleLocationPoint(Location(13.345, 95.765), DateTime(2020, 02, 17));
+    Stop s2 = Stop.fromPoints([p2, p2, p2], placeId: 1);
+
+    Move m = Move.fromPoints(s1, s2, [p1, p2]);
+
+    var jsonMove = m.toJson();
+    print(jsonMove);
+
+    Move moveFromJson = Move.fromJson(jsonMove);
+
+    print(moveFromJson);
+
+
   });
 
   test('Incremental RI', () async {
+    List<SingleLocationPoint> data = await Dataset().exampleData;
     List<DateTime> dates = [
       DateTime(2020, 02, 12),
       DateTime(2020, 02, 13),
@@ -108,12 +125,14 @@ void main() async {
       DateTime(2020, 02, 17),
     ];
 
+
+    /// This is the equivalent of the stored stops and moves
     List<Stop> stops = [];
+    List<Move> moves = [];
 
     for (DateTime _date in dates) {
       List<SingleLocationPoint> d =
           data.where((d) => (d.datetime.zeroTime == _date)).toList();
-
       Preprocessor p = Preprocessor(d, moveDuration: Duration(minutes: 3));
       Features f = Features(_date, p);
       stops.addAll(f.stops);

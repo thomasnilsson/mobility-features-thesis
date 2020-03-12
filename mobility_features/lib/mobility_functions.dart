@@ -17,8 +17,6 @@ extension on double {
   double get radiansFromDegrees => this * (pi / 180.0);
 }
 
-
-
 class Distance {
   static double fromLocation(Location a, Location b) {
     return fromDouble([a._latitude, a._longitude], [b._latitude, b._longitude]);
@@ -79,7 +77,7 @@ int argmaxDouble(List<double> list) {
   int i = 0;
 
   for (int j = 0; j < list.length; j++) {
-    if (list[j]  > maxVal) {
+    if (list[j] > maxVal) {
       maxVal = list[j];
       i = j;
     }
@@ -92,7 +90,7 @@ int argmaxInt(List<int> list) {
   int i = 0;
 
   for (int j = 0; j < list.length; j++) {
-    if (list[j]  > maxVal) {
+    if (list[j] > maxVal) {
       maxVal = list[j];
       i = j;
     }
@@ -100,16 +98,14 @@ int argmaxInt(List<int> list) {
   return i;
 }
 
-
 extension LocationList on List<SingleLocationPoint> {
   List<Location> get locations =>
       this.map((SingleLocationPoint d) => d.location).toList();
 }
 
-
 class FileManager {
-
   String filename;
+
   FileManager(this.filename);
 
   Future<String> get _localPath async {
@@ -148,22 +144,10 @@ class FileManager {
   Future<List<Stop>> readStops() async {
     File f = await _localFile(filename);
     String stopsAsString = await f.readAsString();
-
-//    String stopsJsonEncoded = json.encode(stopsAsString);
-//    print('Read stops enoded json: ${stopsJsonEncoded}');
-
-//    String decodedJson = json.decode(stopsJsonEncoded);
-//    print('Read stops decoded json: ${decodedJson}');
-
-//    List decodedJsonList = json.decode(decodedJson);
-//    print('Read stops decoded json: ${decodedJson}');
-
     List decodedJsonList = json.decode(stopsAsString);
     List<Stop> stops = [];
 
-    for (var x in decodedJsonList) {
-      stops.add(Stop.fromJson(x));
-    }
+    for (var x in decodedJsonList) stops.add(Stop.fromJson(x));
 
     return stops;
   }

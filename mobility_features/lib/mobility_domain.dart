@@ -78,19 +78,23 @@ class SingleLocationPoint {
 /// At initialization a stop will be assigned to the 'Noise' place (with id -1),
 /// and only after all places have been identified will a [Place] be assigned.
 class Stop {
-  List<SingleLocationPoint> points;
   Location _centroid;
   int placeId;
   DateTime _arrival, _departure;
 
-  Stop({this.points, this.placeId = -1}) {
-    _centroid = calculateCentroid(points.locations);
+  Stop(this._centroid, this._arrival, this._departure, {this.placeId = -1});
+
+  /// Construct stop from point cloud
+  factory Stop.fromPoints(List<SingleLocationPoint> p, {int placeId = -1}) {
+    /// Calculate center
+    Location center = calculateCentroid(p.locations);
 
     /// Find min/max time
-    _arrival = DateTime.fromMillisecondsSinceEpoch(
-        points.map((d) => d._datetime.millisecondsSinceEpoch).reduce(min));
-    _departure = DateTime.fromMillisecondsSinceEpoch(
-        points.map((d) => d._datetime.millisecondsSinceEpoch).reduce(max));
+    DateTime arr = DateTime.fromMillisecondsSinceEpoch(
+        p.map((d) => d._datetime.millisecondsSinceEpoch).reduce(min));
+    DateTime dep = DateTime.fromMillisecondsSinceEpoch(
+        p.map((d) => d._datetime.millisecondsSinceEpoch).reduce(max));
+    return Stop(center, arr, dep, placeId: placeId);
   }
 
   DateTime get departure => _departure;
@@ -129,14 +133,12 @@ class Stop {
         "departure": departure.millisecondsSinceEpoch
       };
 
-  /// TODO: Change constructor, this is a fucking mess.....
   factory Stop.fromJson(Map<String, dynamic> json) {
-    Stop s = Stop();
-    s._centroid = Location.fromJson(json['centroid']);
-    s._arrival = json['arrival'];
-    s._departure = json['departure'];
-    s.placeId = json['place_id'];
-    return s;
+    return Stop(
+        Location.fromJson(json['centroid']),
+        DateTime.fromMillisecondsSinceEpoch(json['arrival']),
+        DateTime.fromMillisecondsSinceEpoch(json['departure']),
+        placeId: json['place_id']);
   }
 
   @override
@@ -184,18 +186,21 @@ class Place {
 class Move {
   Stop _stopFrom, _stopTo;
   List<SingleLocationPoint> _points;
+  double _distance;
 
-  Move(this._stopFrom, this._stopTo, this._points);
+  Move(this._stopFrom, this._stopTo, this._distance);
+
+  factory Move.fromPoints(Stop from, Stop to, List<SingleLocationPoint> p) {
+    double d = 0.0;
+    for (int i = 0; i < p.length - 1; i++) {
+      d += Distance.fromLocation(p[i]._location, p[i + 1]._location);
+    }
+
+    return Move(from, to, d);
+  }
 
   /// The haversine distance through all the points between the two stops
-  double get distance {
-    double d = 0.0;
-    for (int i = 0; i < _points.length - 1; i++) {
-      d +=
-          Distance.fromLocation(_points[i]._location, _points[i + 1]._location);
-    }
-    return d;
-  }
+  double get distance => _distance;
 
   /// The duration of the move in milliseconds
   Duration get duration => Duration(
@@ -212,6 +217,17 @@ class Move {
   Stop get stopFrom => _stopFrom;
 
   Stop get stopTo => _stopTo;
+
+  Map<String, dynamic> toJson() => {
+        "stop_from": _stopFrom.toJson(),
+        "stop_to": _stopTo.toJson(),
+        "distance": _distance
+      };
+
+  factory Move.fromJson(Map<String, dynamic> _json) {
+    return Move(Stop.fromJson(_json["stop_from"]),
+        Stop.fromJson(_json["stop_to"]), _json["distance"]);
+  }
 
   @override
   String toString() {

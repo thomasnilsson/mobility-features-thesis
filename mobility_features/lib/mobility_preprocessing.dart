@@ -65,7 +65,8 @@ class Preprocessor {
         cluster = data.sublist(i, j);
         centroid = calculateCentroid(cluster.locations);
       }
-      stops.add(Stop(points: cluster));
+      Stop s = Stop.fromPoints(cluster);
+      stops.add(s);
 
       /// Update i, such that we no longer look at
       /// the previously considered data points
@@ -131,7 +132,7 @@ class Preprocessor {
               cur.departure.leq(d._datetime) && d._datetime.leq(next.arrival))
           .toList();
 
-      moves.add(Move(cur, next, pointsInBetween));
+      moves.add(Move.fromPoints(cur, next, pointsInBetween));
     }
 
     /// Filter out moves based on the minimum duration
