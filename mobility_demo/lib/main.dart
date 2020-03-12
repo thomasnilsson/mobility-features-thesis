@@ -141,11 +141,6 @@ class _MyHomePageState extends State<MyHomePage> {
       _currentIndex = index;
     });
   }
-
-  void _flushFile() {
-    FileUtil().flush();
-  }
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -160,10 +155,6 @@ class _MyHomePageState extends State<MyHomePage> {
           IconButton(
             icon: Icon(Icons.update),
             onPressed: _loadFeatures,
-          ),
-          IconButton(
-            icon: Icon(Icons.delete),
-            onPressed: _flushFile,
           ),
         ],
       ),
