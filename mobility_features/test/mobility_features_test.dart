@@ -97,12 +97,13 @@ void main() async {
     printList(decoded);
     printList(stopsDecoded);
 
-    /// Move
+    /// Move serialization
     SingleLocationPoint p2 =
     SingleLocationPoint(Location(13.345, 95.765), DateTime(2020, 02, 17));
     Stop s2 = Stop.fromPoints([p2, p2, p2], placeId: 1);
 
     Move m = Move.fromPoints(s1, s2, [p1, p2]);
+    print(m);
 
     var jsonMove = m.toJson();
     print(jsonMove);
@@ -111,6 +112,20 @@ void main() async {
 
     print(moveFromJson);
 
+    /// Make a [List] of stops
+    List jsonMoves = [moveFromJson, moveFromJson, moveFromJson]
+        .map((m) => m.toJson())
+        .toList();
+
+    /// Serialize it
+    String jsonStringMoves = json.encode(jsonMoves);
+
+    /// Deserialize it
+    List decodedMovesMaps = json.decode(jsonStringMoves);
+    printList(decodedMovesMaps);
+
+    List<Move> decodedMoves = decodedMovesMaps.map((d) => Move.fromJson(d)).toList();
+    printList(decodedMoves);
 
   });
 

@@ -97,6 +97,8 @@ class Stop {
     return Stop(center, arr, dep, placeId: placeId);
   }
 
+  Location get centroid => _centroid;
+
   DateTime get departure => _departure;
 
   DateTime get arrival => _arrival;
@@ -120,7 +122,6 @@ class Stop {
     return hours;
   }
 
-  Location get centroid => _centroid;
 
   Duration get duration => Duration(
       milliseconds:
@@ -231,7 +232,7 @@ class Move {
 
   @override
   String toString() {
-    return 'Move: ${_stopFrom._centroid} --> ${_stopTo._centroid}, (Place ${_stopFrom.placeId} --> ${_stopTo.placeId}) (Time: $duration) (Points: ${_points.length})';
+    return 'Move: ${_stopFrom.centroid} --> ${_stopTo.centroid}, (Place ${_stopFrom.placeId} --> ${_stopTo.placeId}) (Time: $duration))';
   }
 }
 
