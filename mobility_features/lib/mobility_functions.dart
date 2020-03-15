@@ -67,7 +67,7 @@ extension CompareDates on DateTime {
     return this.isBefore(other) || this.isAtSameMomentAs(other);
   }
 
-  DateTime get zeroTime {
+  DateTime get midnight {
     return DateTime(this.year, this.month, this.day);
   }
 }

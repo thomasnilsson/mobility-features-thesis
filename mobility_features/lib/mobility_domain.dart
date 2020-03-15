@@ -108,7 +108,7 @@ class Stop {
     int start = arrival.hour;
     int end = departure.hour;
 
-    if (departure.zeroTime != arrival.zeroTime) {
+    if (departure.midnight != arrival.midnight) {
       throw Exception(
           'Arrival and Departure should be on the same date, but was not! $this');
     }
@@ -163,7 +163,7 @@ class Place {
       _stops.map((s) => s.duration).reduce((a, b) => a + b);
 
   Duration durationForDate(DateTime d) => _stops
-      .where((s) => s.arrival.zeroTime == d)
+      .where((s) => s.arrival.midnight == d)
       .map((s) => s.duration)
       .fold(Duration(), (a, b) => a + b);
 

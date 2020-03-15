@@ -8,7 +8,7 @@ void main() async {
   test('Datetime extension', () async {
     DateTime d1 = DateTime.parse('2020-02-12 09:30:00.000');
     DateTime d2 = DateTime.parse('2020-02-12 13:31:00.400');
-    assert(d1.zeroTime == d2.zeroTime);
+    assert(d1.midnight == d2.midnight);
   });
 
   test('Get unique dates', () async {
@@ -145,13 +145,22 @@ void main() async {
     List<Stop> stops = [];
     List<Move> moves = [];
 
-    for (DateTime _date in dates) {
-      List<SingleLocationPoint> d =
-          data.where((d) => (d.datetime.zeroTime == _date)).toList();
-      Preprocessor p = Preprocessor(d, moveDuration: Duration(minutes: 3));
-      Features f = Features(_date, p);
-      stops.addAll(f.stops);
+    for (DateTime date in dates) {
+      DataPreprocessor dp = DataPreprocessor(date);
 
+      List<SingleLocationPoint> dataOnDate =
+          data.where((x) => (x.datetime.midnight == date)).toList();
+
+      List<Stop> stopsOnDate = dp.findStops(dataOnDate);
+      stops.addAll(stopsOnDate);
+
+      List<Place> places = dp.findPlaces(stops);
+
+      List<Move> movesOnDate = dp.findMoves(dataOnDate, stops);
+      moves.addAll(movesOnDate);
+
+      FeaturesAggregate features = FeaturesAggregate(date, stops, places, moves);
+      print('$date | RoutineIndex: ${features.routineIndex}');
     }
   });
 }
