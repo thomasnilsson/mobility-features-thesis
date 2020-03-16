@@ -1,4 +1,4 @@
-part of mobility_features_test_lib;
+part of mobility_features_lib;
 
 class Dataset {
   Map<String, String> decode(String s) {
@@ -12,7 +12,7 @@ class Dataset {
 
   Future<List<SingleLocationPoint>> _readJsonFromFile(String path) async {
     List<SingleLocationPoint> data = [];
-    final file = await await new File(path);
+    final file = new File(path);
 
     await file.readAsString().then((String contents) {
       List<String> tokens = contents.split('\n');
@@ -26,6 +26,18 @@ class Dataset {
     return data;
   }
 
-  Future<List<SingleLocationPoint>> get exampleData async =>
-      await _readJsonFromFile('test/data/example-multi.json');
+  List<SingleLocationPoint> parseJson(String contents) {
+    List<SingleLocationPoint> data = [];
+    List<String> tokens = contents.split('\n');
+    for (String x in tokens) {
+      Map<String, String> m = decode(x);
+      if (m.isNotEmpty) {
+        data.add(SingleLocationPoint.fromMap(m));
+      }
+    }
+    return data;
+  }
+
+  Future<List<SingleLocationPoint>> loadDataset(String path) async =>
+      await _readJsonFromFile(path);
 }

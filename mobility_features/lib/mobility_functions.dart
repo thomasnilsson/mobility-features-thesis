@@ -22,11 +22,11 @@ class Distance {
     return fromDouble([a._latitude, a._longitude], [b._latitude, b._longitude]);
   }
 
-  static double fromDouble(List<double> point1, List<double> point2) {
-    double lat1 = point1[0].radiansFromDegrees;
-    double lon1 = point1[1].radiansFromDegrees;
-    double lat2 = point2[0].radiansFromDegrees;
-    double lon2 = point2[1].radiansFromDegrees;
+  static double fromDouble(List<double> p1, List<double> p2) {
+    double lat1 = p1[0].radiansFromDegrees;
+    double lon1 = p1[1].radiansFromDegrees;
+    double lat2 = p2[0].radiansFromDegrees;
+    double lon2 = p2[1].radiansFromDegrees;
 
     double earthRadius = 6378137.0; // WGS84 major axis
     double distance = 2 *
@@ -103,53 +103,30 @@ extension LocationList on List<SingleLocationPoint> {
       this.map((SingleLocationPoint d) => d.location).toList();
 }
 
-class FileManager {
-  String filename;
+class Serializer {
+  /// Provide a file reference in order to serialize objects.
+  File file;
 
-  FileManager(this.filename);
+  Serializer(this.file);
 
-  Future<String> get _localPath async {
-    final directory = await getApplicationDocumentsDirectory();
-    return directory.path;
+  /// Writes a list of [Serializable] to the file given in the constructor.
+  Future<void> writeSerializable(List<Serializable> elements) async {
+    List jsonStops = elements.map((e) => e.toJson()).toList();
+    String s = json.encode(jsonStops);
+    file.writeAsString(s);
   }
 
-  Future<File> _localFile(String filename) async {
-    final path = await _localPath;
-    return File('$path/$filename');
-  }
-
-  Future<void> writeStops(List<Stop> stops) async {
-    // TODO: Read already saved stops
-    // TODO: Filter out stops older than 30 days
-    // TODO: Write recent stops and the stops from argument to disk
-    List jsonStops = stops.map((s) => s.toJson()).toList();
-    String stopsString = json.encode(jsonStops);
-    File f = await _localFile(filename);
-    f.writeAsString(stopsString);
-  }
-
-  Future<List<SingleLocationPoint>> readSingleDataPoints() async {
-    File f = await _localFile(filename);
-    String stopsAsString = await f.readAsString();
+  /// Reads contents of the file in the constructor,
+  /// and maps it to a list of a specific [Serializable] type.
+  Future<List<Serializable>> readSerializable(Type type) async {
+    String stopsAsString = await file.readAsString();
     List decodedJsonList = json.decode(stopsAsString);
-    List<SingleLocationPoint> points = [];
 
-    for (var x in decodedJsonList) {
-      points.add(SingleLocationPoint.fromJson(x));
+    switch (type) {
+      case Move : return decodedJsonList.map((x) => Move.fromJson(x)).toList();
+      case Stop : return decodedJsonList.map((x) => Stop.fromJson(x)).toList();
+      default: return decodedJsonList.map((x) => SingleLocationPoint.fromJson(x)).toList();
     }
-
-    return points;
-  }
-
-  Future<List<Stop>> readStops() async {
-    File f = await _localFile(filename);
-    String stopsAsString = await f.readAsString();
-    List decodedJsonList = json.decode(stopsAsString);
-    List<Stop> stops = [];
-
-    for (var x in decodedJsonList) stops.add(Stop.fromJson(x));
-
-    return stops;
   }
 }
 

@@ -2,8 +2,19 @@ import 'mobility_features_test_lib.dart';
 import 'package:mobility_features/mobility_features_lib.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'dart:convert';
+import 'dart:io';
 
 void main() async {
+  String datasetPath = 'lib/data/example-multi.json';
+
+  List<DateTime> dates = [
+    DateTime(2020, 02, 12),
+    DateTime(2020, 02, 13),
+    DateTime(2020, 02, 14),
+    DateTime(2020, 02, 15),
+    DateTime(2020, 02, 16),
+    DateTime(2020, 02, 17),
+  ];
 
   test('Datetime extension', () async {
     DateTime d1 = DateTime.parse('2020-02-12 09:30:00.000');
@@ -12,7 +23,7 @@ void main() async {
   });
 
   test('Get unique dates', () async {
-    List<SingleLocationPoint> data = await Dataset().exampleData;
+    List<SingleLocationPoint> data = await Dataset().loadDataset(datasetPath);
     final p = Preprocessor(data, moveDuration: Duration(minutes: 3));
     print('Unique Dates:');
     print('*' * 50);
@@ -20,12 +31,21 @@ void main() async {
   });
 
   test('Run feature extraction', () async {
-    List<SingleLocationPoint> data = await Dataset().exampleData;
-    /// TODO: MOCK DATE
-    DateTime date = DateTime(2020, 02, 17);
-    Preprocessor p = Preprocessor(data, moveDuration: Duration(minutes: 3));
+    List<SingleLocationPoint> data = await Dataset().loadDataset(datasetPath);
+    List<Stop> stops = [];
+    List<Move> moves = [];
+    DataPreprocessor dp;
 
-    Features f = Features(date, p);
+    for (DateTime date in dates) {
+      dp = DataPreprocessor(date);
+      List<Stop> stopsOnDate = dp.findStops(data);
+      stops.addAll(stopsOnDate);
+      moves.addAll(dp.findMoves(data, stopsOnDate));
+    }
+
+    List<Place> places = dp.findPlaces(stops);
+
+    FeaturesAggregate f = FeaturesAggregate(dates.last, stops, places, moves);
 
     print('Stops found:');
     print('*' * 50);
@@ -43,7 +63,6 @@ void main() async {
     print('*' * 50);
 
     print('Number of Clusters: ${f.numberOfClusters}');
-    print('Location Variance: ${f.locationVariance}');
     print('Entropy: ${f.entropy}');
     print('Normalized Entropy: ${f.normalizedEntropy}');
     print('Total Distance (meters): ${f.totalDistance}');
@@ -51,13 +70,10 @@ void main() async {
     print('-' * 50);
 
     print('Daily Number of Clusters: ${f.numberOfClustersDaily}');
-    print('Daily Location Variance: ${f.locationVarianceDaily}');
     print('Daily Entropy: ${f.entropyDaily}');
     print('Daily Normalized Entropy: ${f.normalizedEntropyDaily}');
     print('Daily Total Distance (meters): ${f.totalDistanceDaily}');
     print('Daily Homestay (%): ${f.homeStayDaily}');
-
-    print('Routine index (%): ${f.routineIndex}');
   });
 
   test('Serialization of stops and moves', () async {
@@ -99,7 +115,7 @@ void main() async {
 
     /// Move serialization
     SingleLocationPoint p2 =
-    SingleLocationPoint(Location(13.345, 95.765), DateTime(2020, 02, 17));
+        SingleLocationPoint(Location(13.345, 95.765), DateTime(2020, 02, 17));
     Stop s2 = Stop.fromPoints([p2, p2, p2], placeId: 1);
 
     Move m = Move.fromPoints(s1, s2, [p1, p2]);
@@ -124,22 +140,13 @@ void main() async {
     List decodedMovesMaps = json.decode(jsonStringMoves);
     printList(decodedMovesMaps);
 
-    List<Move> decodedMoves = decodedMovesMaps.map((d) => Move.fromJson(d)).toList();
+    List<Move> decodedMoves =
+        decodedMovesMaps.map((d) => Move.fromJson(d)).toList();
     printList(decodedMoves);
-
   });
 
   test('Incremental RI', () async {
-    List<SingleLocationPoint> data = await Dataset().exampleData;
-    List<DateTime> dates = [
-      DateTime(2020, 02, 12),
-      DateTime(2020, 02, 13),
-      DateTime(2020, 02, 14),
-      DateTime(2020, 02, 15),
-      DateTime(2020, 02, 16),
-      DateTime(2020, 02, 17),
-    ];
-
+    List<SingleLocationPoint> data = await Dataset().loadDataset(datasetPath);
 
     /// This is the equivalent of the stored stops and moves
     List<Stop> stops = [];
@@ -156,11 +163,53 @@ void main() async {
 
       List<Place> places = dp.findPlaces(stops);
 
-      List<Move> movesOnDate = dp.findMoves(dataOnDate, stops);
+      List<Move> movesOnDate = dp.findMoves(dataOnDate, stopsOnDate);
       moves.addAll(movesOnDate);
 
-      FeaturesAggregate features = FeaturesAggregate(date, stops, places, moves);
+      FeaturesAggregate features =
+          FeaturesAggregate(date, stops, places, moves);
       print('$date | RoutineIndex: ${features.routineIndex}');
     }
   });
+
+  test('write to file', () async {
+    File f = new File('test/test_file.txt');
+    await f.writeAsString('test 123 123 123');
+
+    String res = await f.readAsString();
+
+    print(res);
+  });
+
+  test('Serialization to file', () async {
+    File movesFile = new File('test/moves.json');
+
+    List<SingleLocationPoint> data = await Dataset().loadDataset(datasetPath);
+
+    Stop s1 = Stop.fromPoints(data.sublist(0, 10), placeId: 1);
+    Stop s2 = Stop.fromPoints(data.sublist(10, 20), placeId: 2);
+    Stop s3 = Stop.fromPoints(data.sublist(20, 30), placeId: 3);
+    Stop s4 = Stop.fromPoints(data.sublist(30, 40), placeId: 4);
+
+    List<Stop> stops = [s1, s2, s3, s4];
+    printList(stops);
+
+    /// Serialize
+    Serializer stopSerializer = Serializer(new File('test/stops.json'));
+    stopSerializer.writeSerializable(stops);
+
+    /// De-serialize
+//    List<Stop> stopsFromFile = await stopSerializer.readStops();
+    List<Stop> stopsFromFile = await stopSerializer.readSerializable(Stop);
+    printList(stopsFromFile);
+
+    List<Move> moves = [
+      Move.fromPoints(s1, s2, data.sublist(0, 20)),
+      Move.fromPoints(s2, s3, data.sublist(10, 30)),
+      Move.fromPoints(s3, s4, data.sublist(20, 40))
+    ];
+
+  });
+
 }
+

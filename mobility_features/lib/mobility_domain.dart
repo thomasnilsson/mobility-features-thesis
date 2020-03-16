@@ -2,9 +2,16 @@ part of mobility_features_lib;
 
 const int HOURS_IN_A_DAY = 24;
 
+
+abstract class Serializable {
+  Map<String, dynamic> toJson();
+
+  Serializable.fromJson(Map<String, dynamic> json);
+}
+
 /// A [Location] object contains a latitude and longitude
 /// and represents a 2D spatial coordinates
-class Location {
+class Location implements Serializable {
   double _latitude;
   double _longitude;
 
@@ -31,7 +38,7 @@ class Location {
 
 /// A [SingleLocationPoint] holds a 2D [Location] spatial data point
 /// as well as a [DateTime] value s.t. it may be temporally ordered
-class SingleLocationPoint {
+class SingleLocationPoint implements Serializable {
   Location _location;
   DateTime _datetime;
   double speed = 0;
@@ -77,7 +84,7 @@ class SingleLocationPoint {
 /// A [Stop] has an assigned [placeId] which links it to a [Place].
 /// At initialization a stop will be assigned to the 'Noise' place (with id -1),
 /// and only after all places have been identified will a [Place] be assigned.
-class Stop {
+class Stop implements Serializable {
   Location _centroid;
   int placeId;
   DateTime _arrival, _departure;
@@ -184,7 +191,7 @@ class Place {
 /// A [Move] is a transfer from one [Stop] to another.
 /// A set of features can be derived from this such as the haversine distance between
 /// the stops, the duration of the move, and thereby also the average travel speed.
-class Move {
+class Move implements Serializable {
   Stop _stopFrom, _stopTo;
   List<SingleLocationPoint> _points;
   double _distance;

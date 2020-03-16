@@ -2,7 +2,6 @@ part of mobility_features_lib;
 
 class FeaturesAggregate {
 
-  List<SingleLocationPoint> _data;
   List<Stop> _stops, _stopsDaily;
   List<Place> _places, _placesDaily;
   List<Move> _moves, _movesDaily;
@@ -35,11 +34,8 @@ class FeaturesAggregate {
   /// Number of clusters on the specified date
   int get numberOfClustersDaily => _placesDaily.length;
 
-  /// Location variance
-//  double get locationVariance => calcLocationVariance(_data);
-
   /// Location variance today
-  double get locationVarianceDaily => calcLocationVariance(_data);
+//  double get locationVarianceDaily => calcLocationVariance(_dataDaily);
 
   double get entropy => calcEntropy(places.map((p) => p.duration).toList());
 
