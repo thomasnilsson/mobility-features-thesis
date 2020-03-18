@@ -6,6 +6,7 @@ import 'dart:io';
 
 void main() async {
   String datasetPath = 'lib/data/example-multi.json';
+  String testDataDir = 'test/data';
 
   List<DateTime> dates = [
     DateTime(2020, 02, 12),
@@ -182,34 +183,113 @@ void main() async {
   });
 
   test('Serialization to file', () async {
-    File movesFile = new File('test/moves.json');
-
+    /// Single data points
     List<SingleLocationPoint> data = await Dataset().loadDataset(datasetPath);
 
-    Stop s1 = Stop.fromPoints(data.sublist(0, 10), placeId: 1);
-    Stop s2 = Stop.fromPoints(data.sublist(10, 20), placeId: 2);
-    Stop s3 = Stop.fromPoints(data.sublist(20, 30), placeId: 3);
-    Stop s4 = Stop.fromPoints(data.sublist(30, 40), placeId: 4);
+    Serializer<SingleLocationPoint> dataSerializer =
+        Serializer(new File('$testDataDir/points.json'));
+    List<SingleLocationPoint> subset = data.sublist(0, 5);
+    printList(subset);
 
-    List<Stop> stops = [s1, s2, s3, s4];
+    /// Serialize the subset of 5 points
+    dataSerializer.write(subset);
+
+    /// De-serialize the subset from file
+    List<SingleLocationPoint> dataFromFile = await dataSerializer.read();
+    printList(dataFromFile);
+
+    List<Stop> stops = [
+      Stop.fromPoints(data.sublist(0, 10), placeId: 1),
+      Stop.fromPoints(data.sublist(10, 20), placeId: 2),
+      Stop.fromPoints(data.sublist(20, 30), placeId: 3),
+      Stop.fromPoints(data.sublist(30, 40), placeId: 4)
+    ];
+
     printList(stops);
 
-    /// Serialize
-    Serializer stopSerializer = Serializer(new File('test/stops.json'));
-    stopSerializer.writeSerializable(stops);
+    /// Serialize stops
+    Serializer<Stop> stopSerializer =
+        Serializer(new File('$testDataDir/stops.json'));
+    stopSerializer.write(stops);
 
-    /// De-serialize
-//    List<Stop> stopsFromFile = await stopSerializer.readStops();
-    List<Stop> stopsFromFile = await stopSerializer.readSerializable(Stop);
+    /// De-serialize stops
+    List<Stop> stopsFromFile = await stopSerializer.read();
+    print('Stops deserialized:');
     printList(stopsFromFile);
 
     List<Move> moves = [
-      Move.fromPoints(s1, s2, data.sublist(0, 20)),
-      Move.fromPoints(s2, s3, data.sublist(10, 30)),
-      Move.fromPoints(s3, s4, data.sublist(20, 40))
+      Move.fromPoints(stops[0], stops[1], data.sublist(0, 20)),
+      Move.fromPoints(stops[1], stops[2], data.sublist(10, 30)),
+      Move.fromPoints(stops[2], stops[3], data.sublist(20, 40))
     ];
 
+    printList(moves);
+
+    /// Serialize moves
+    Serializer<Move> moveSerializer =
+        Serializer(new File('$testDataDir/moves.json'));
+    moveSerializer.write(moves);
+
+    /// Deserialize moves
+    List<Move> movesFromFile = await moveSerializer.read();
+    print('Moves deserialized:');
+    printList(movesFromFile);
   });
 
-}
+  test('Serialize all Data points', () async {
+    /// Single data points
+    List<SingleLocationPoint> data = await Dataset().loadDataset(datasetPath);
 
+    Serializer dataSerializer =
+        Serializer(new File('$testDataDir/all_points.json'));
+
+    /// Serialize the dataset
+    dataSerializer.write(data);
+  });
+
+  test('De-serialize all Data points', () async {
+    /// Single data points
+    List<SingleLocationPoint> data = await Dataset().loadDataset(datasetPath);
+
+    Serializer<SingleLocationPoint> dataSerializer =
+        Serializer(new File('$testDataDir/all_points.json'));
+
+    /// Serialize the dataset
+    List<SingleLocationPoint> dataFromFile = await dataSerializer.read();
+    assert(dataFromFile.length == data.length);
+  });
+
+  test('Serialize all Stops and Moves', () async {
+    Serializer<Stop> stopSerializer =
+        Serializer(new File('$testDataDir/all_stops.json'));
+    Serializer<Move> moveSerializer =
+        Serializer(new File('$testDataDir/all_moves.json'));
+
+    /// Single data points
+    List<SingleLocationPoint> data = await Dataset().loadDataset(datasetPath);
+
+    for (DateTime date in dates) {
+      List<SingleLocationPoint> dataOnDate =
+          data.where((x) => x.datetime.midnight == date).toList();
+      DataPreprocessor preprocessor = DataPreprocessor(date);
+      List<Stop> newStops = preprocessor.findStops(dataOnDate);
+      List<Move> newMoves = preprocessor.findMoves(dataOnDate, newStops);
+
+      /// Save to file  by reading the content, appending it, and then writing
+      List<Stop> stops = await stopSerializer.read();
+      List<Move> moves = await moveSerializer.read();
+
+      stops.addAll(newStops);
+      moves.addAll(newMoves);
+
+      stopSerializer.write(stops);
+      moveSerializer.write(moves);
+    }
+
+    List<Stop> stops = await stopSerializer.read();
+    List<Move> moves = await moveSerializer.read();
+    print("Number of stops: ${stops.length}");
+    print("Number of moves: ${moves.length}");
+
+  });
+}

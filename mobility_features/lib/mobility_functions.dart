@@ -103,14 +103,19 @@ extension LocationList on List<SingleLocationPoint> {
       this.map((SingleLocationPoint d) => d.location).toList();
 }
 
-class Serializer {
+class Serializer<E> {
   /// Provide a file reference in order to serialize objects.
   File file;
 
-  Serializer(this.file);
+  Serializer(this.file) {
+    bool exists = file.existsSync();
+    if (!exists) {
+      write([]);
+    }
+  }
 
   /// Writes a list of [Serializable] to the file given in the constructor.
-  Future<void> writeSerializable(List<Serializable> elements) async {
+  Future<void> write(List<Serializable> elements) async {
     List jsonStops = elements.map((e) => e.toJson()).toList();
     String s = json.encode(jsonStops);
     file.writeAsString(s);
@@ -118,17 +123,18 @@ class Serializer {
 
   /// Reads contents of the file in the constructor,
   /// and maps it to a list of a specific [Serializable] type.
-  Future<List<Serializable>> readSerializable(Type type) async {
+  Future<List<Serializable>> read() async {
     String stopsAsString = await file.readAsString();
     List decodedJsonList = json.decode(stopsAsString);
 
-    switch (type) {
+    switch (E) {
       case Move : return decodedJsonList.map((x) => Move.fromJson(x)).toList();
       case Stop : return decodedJsonList.map((x) => Stop.fromJson(x)).toList();
       default: return decodedJsonList.map((x) => SingleLocationPoint.fromJson(x)).toList();
     }
   }
 }
+
 
 void printMatrix(List<List> m) {
   for (List row in m) {

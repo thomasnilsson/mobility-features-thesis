@@ -5,6 +5,7 @@ import 'dart:isolate';
 import 'package:flutter/foundation.dart';
 import 'ui/data_widget.dart';
 import 'ui/features_widget.dart';
+import 'package:flutter/services.dart' show rootBundle;
 
 void main() => runApp(MyApp());
 
@@ -33,7 +34,10 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   Geolocator geo = Geolocator();
-  List<SingleLocationPoint> dataset = [];
+  List<SingleLocationPoint> _points = [];
+  List<Stop> _stops = [];
+  List<Move> _moves = [];
+
   final databaseReference = FirebaseDatabase.instance.reference();
   int _currentIndex = 0;
   List<Widget> _children = [DataWidget([]), FeaturesWidget(null)];
@@ -47,39 +51,31 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void init() async {
-    SingleLocationPoint p =
-        SingleLocationPoint(Location(12.345, 98.765), DateTime.now());
-    Stop s = Stop([p, p, p], placeId: 2);
-    List<Stop> stops = [s, s, s];
+    //    await _loadPointsFromAssets();
+    await _loadStopsFromAssets();
+    await _loadMovesFromAssets();
 
-    List jsonStops = stops.map((s) => s.toJson()).toList();
-
-    FileManager fm = FileManager('stops.json');
-    await fm.writeStops(stops);
-    List<Stop> stopsFromFile = await fm.readStops();
-    FileUtil().printList(stopsFromFile);
-
-    await _loadDataset();
-    await _loadFeatures();
+    await _loadDataFromDevice();
+    print('Dataset length: ${_points.length}');
+    await _loadFeaturesAsync();
   }
 
-  Future _loadDataset() async {
-    dataset = await FileUtil().readLocationData();
-
-    _children[0] = DataWidget(dataset);
+  Future _loadStopsFromAssets() async {
+    String contents = await rootBundle.loadString('data/all_stops.json');
+    List decoded = json.decode(contents);
+    _stops = decoded.map((x) => Stop.fromJson(x)).toList();
   }
 
-  Future _loadFeatures() async {
-    // From isolate to main isolate.
-    ReceivePort receivePort = ReceivePort();
-    await Isolate.spawn(calcFeaturesAsync, receivePort.sendPort);
+  Future _loadMovesFromAssets() async {
+    String contents = await rootBundle.loadString('data/all_moves.json');
+    List decoded = json.decode(contents);
+    _moves = decoded.map((x) => Move.fromJson(x)).toList();
+  }
 
-    // Send port for the prime number isolate. We will send parameter n
-    // using this port.
-    SendPort sendPort = await receivePort.first;
-
-    Features f = await sendReceive(sendPort, dataset);
-    _children[1] = FeaturesWidget(f);
+  Future _loadDataFromDevice() async {
+    List<SingleLocationPoint> localData = await FileUtil().readLocationData();
+    _points.addAll(localData);
+    _children[0] = DataWidget(_points);
   }
 
   void _initLocation() async {
@@ -111,36 +107,87 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  static calcFeaturesAsync(SendPort sendPort) async {
-    // Port for receiving message from main isolate.
-    // We will receive the value of n using this port.
-    ReceivePort receivePort = ReceivePort();
-    // Sending the send Port of isolate to receive port of main isolate.
-    sendPort.send(receivePort.sendPort);
-    var msg = await receivePort.first;
-
-    List<SingleLocationPoint> dataset = msg[0];
-    SendPort replyPort = msg[1];
-
-    Preprocessor p = Preprocessor(dataset);
-    DateTime date = DateTime.now().date;
-    Features f = p.featuresByDate(date);
-
-    replyPort.send(f);
-  }
-
-  Future sendReceive(SendPort send, message) {
-    ReceivePort receivePort = ReceivePort();
-    send.send([message, receivePort.sendPort]);
-    return receivePort.first;
-  }
-
   void onTabTapped(int index) {
-    _loadDataset();
+    _loadDataFromDevice();
     setState(() {
       _currentIndex = index;
     });
   }
+
+  /// Feature Calculation SYNCHRONIZED
+  Future _loadFeaturesSync() {
+    /// Find today's stops and moves
+    DateTime today = DateTime.now().midnight;
+    DataPreprocessor p = DataPreprocessor(today);
+    List<Stop> stopsToday = p.findStops(_points);
+    List<Move> movesToday = p.findMoves(_points, stopsToday);
+
+    /// Add historic stops and moves
+    _stops.addAll(stopsToday);
+    _moves.addAll(movesToday);
+
+    /// Find all places
+    List<Place> _places = p.findPlaces(_stops);
+
+    /// Extract features
+    FeaturesAggregate f = FeaturesAggregate(today, _stops, _places, _moves);
+    _children[1] = FeaturesWidget(f);
+  }
+
+  /// Feature Calculation ASYNC
+  Future _loadFeaturesAsync() async {
+    // From isolate to main isolate.
+    ReceivePort receivePort = ReceivePort();
+    await Isolate.spawn(calcFeaturesAsync, receivePort.sendPort);
+
+    // Send port for the prime number isolate. We will send parameter n
+    // using this port.
+    SendPort sendPort = await receivePort.first;
+
+    FeaturesAggregate f = await relay(sendPort, _points, _stops, _moves);
+    _children[1] = FeaturesWidget(f);
+  }
+
+  Future relay(SendPort sp, List<SingleLocationPoint> points,
+      List<Stop> stops, List<Move> moves) {
+    ReceivePort receivePort = ReceivePort();
+    sp.send([points, stops, moves, receivePort.sendPort]);
+    return receivePort.first;
+  }
+
+  static calcFeaturesAsync(SendPort sendPort) async {
+    ReceivePort receivePort = ReceivePort();
+    sendPort.send(receivePort.sendPort);
+    var msg = await receivePort.first;
+
+    List<SingleLocationPoint> points = msg[0];
+    List<Stop> stops = msg[1];
+    List<Move> moves = msg[2];
+    SendPort replyPort = msg[3];
+
+    /// Find today's stops and moves
+    DateTime today = DateTime.now().midnight;
+    DataPreprocessor p = DataPreprocessor(today);
+    List<Stop> stopsToday = p.findStops(points);
+    List<Move> movesToday = p.findMoves(points, stopsToday);
+
+    /// Add historic stops and moves
+    stops.addAll(stopsToday);
+    moves.addAll(movesToday);
+
+    print('Moves: ${moves.length}');
+    print('Stops: ${stops.length}');
+
+    /// Find all places
+    List<Place> places = p.findPlaces(stops);
+
+    /// Extract features
+    FeaturesAggregate f = FeaturesAggregate(today, stops, places, moves);
+
+    /// Send back response
+    replyPort.send(f);
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -154,7 +201,7 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
           IconButton(
             icon: Icon(Icons.update),
-            onPressed: _loadFeatures,
+            onPressed: _loadFeaturesAsync,
           ),
         ],
       ),
