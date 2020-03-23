@@ -11,7 +11,7 @@ class FeaturesWidget extends StatelessWidget {
   FeaturesWidget(this._features) {
     _content = [];
     if (_features != null) {
-      _content.add('Statistics for today (thus far), ${formatDate(_features.date)} based on ${_features.uniqueDates.length} previous dates.');
+      _content.add('Statistics for today (thus far), ${formatDate(_features.date)} based on ${_features.historicalDates.length} previous dates.');
       _content.add("You've have stuck ${_features.routineIndexDaily * 100} % to your routine.");
       _content.add("You've stayed home ${_features.homeStayDaily * 100} % of the time.");
       _content.add("You've travelled ${_features.totalDistanceDaily / 1000} km.");

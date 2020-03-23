@@ -23,6 +23,7 @@ class FeaturesAggregate {
   /// Date
   DateTime get date => _date;
   List<DateTime> get uniqueDates => _uniqueDates;
+  List<DateTime> get historicalDates => _uniqueDates.where((d) => d.isBefore(_date.midnight)).toList();
 
   /// FEATURES
   List<Stop> get stops => _stops;
@@ -135,8 +136,7 @@ class FeaturesAggregate {
     double totalError = 0.0;
 
     /// Extract past dates
-    List<DateTime> datesHist =
-        _uniqueDates.where((d) => d.isBefore(_date.midnight)).toList();
+    List<DateTime> datesHist = historicalDates;
 
     if (datesHist.isEmpty) {
       return -1.0;
