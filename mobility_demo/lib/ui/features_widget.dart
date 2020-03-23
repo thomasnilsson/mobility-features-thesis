@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
 import '../mobility.dart';
+import 'package:intl/intl.dart';
 
 class FeaturesWidget extends StatelessWidget {
   FeaturesAggregate _features;
   List<String> _content;
 
+  String formatDate(DateTime date) => new DateFormat("MMMM d").format(date);
+
   FeaturesWidget(this._features) {
     _content = [];
     if (_features != null) {
-      _content.add('home stay: ${_features.homeStay}');
-      _content.add('total dist: ${_features.totalDistance}');
-      _content.add('clusters : ${_features.numberOfClusters}');
-      _content.add('normalized entropy: ${_features.normalizedEntropy}');
-      _content.add('routine index (today): ${_features.routineIndex}');
+      _content.add('Statistics for today (thus far), ${formatDate(_features.date)} based on ${_features.uniqueDates.length} previous dates.');
+      _content.add("You've have stuck ${_features.routineIndexDaily * 100} % to your routine.");
+      _content.add("You've stayed home ${_features.homeStayDaily * 100} % of the time.");
+      _content.add("You've travelled ${_features.totalDistanceDaily / 1000} km.");
+      _content.add("You've visited ${_features.numberOfClustersDaily} significant places.");
+      _content.add('Entropy for time spent at significant places is ${_features.normalizedEntropyDaily}');
+      _content.add('Total location variance is ${_features.locationVarianceDaily}');
     }
   }
 

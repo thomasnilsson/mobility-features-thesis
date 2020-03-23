@@ -116,8 +116,8 @@ class Serializer<E> {
 
   /// Writes a list of [Serializable] to the file given in the constructor.
   Future<void> write(List<Serializable> elements) async {
-    List jsonStops = elements.map((e) => e.toJson()).toList();
-    String s = json.encode(jsonStops);
+    List serialized = elements.map((e) => e.toJson()).toList();
+    String s = json.encode(serialized);
     file.writeAsString(s);
   }
 
@@ -128,13 +128,17 @@ class Serializer<E> {
     List decodedJsonList = json.decode(stopsAsString);
 
     switch (E) {
-      case Move : return decodedJsonList.map((x) => Move.fromJson(x)).toList();
-      case Stop : return decodedJsonList.map((x) => Stop.fromJson(x)).toList();
-      default: return decodedJsonList.map((x) => SingleLocationPoint.fromJson(x)).toList();
+      case Move:
+        return decodedJsonList.map((x) => Move.fromJson(x)).toList();
+      case Stop:
+        return decodedJsonList.map((x) => Stop.fromJson(x)).toList();
+      default:
+        return decodedJsonList
+            .map((x) => SingleLocationPoint.fromJson(x))
+            .toList();
     }
   }
 }
-
 
 void printMatrix(List<List> m) {
   for (List row in m) {
@@ -144,4 +148,9 @@ void printMatrix(List<List> m) {
     }
     print(s);
   }
+}
+
+List<List<double>> zeroMatrix(int rows, int cols) {
+  return new List.generate(
+      rows, (_) => new List<double>.filled(cols, 0.0));
 }

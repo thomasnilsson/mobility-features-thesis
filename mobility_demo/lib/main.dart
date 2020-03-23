@@ -114,26 +114,6 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  /// Feature Calculation SYNCHRONIZED
-  Future _loadFeaturesSync() {
-    /// Find today's stops and moves
-    DateTime today = DateTime.now().midnight;
-    DataPreprocessor p = DataPreprocessor(today);
-    List<Stop> stopsToday = p.findStops(_points);
-    List<Move> movesToday = p.findMoves(_points, stopsToday);
-
-    /// Add historic stops and moves
-    _stops.addAll(stopsToday);
-    _moves.addAll(movesToday);
-
-    /// Find all places
-    List<Place> _places = p.findPlaces(_stops);
-
-    /// Extract features
-    FeaturesAggregate f = FeaturesAggregate(today, _stops, _places, _moves);
-    _children[1] = FeaturesWidget(f);
-  }
-
   /// Feature Calculation ASYNC
   Future _loadFeaturesAsync() async {
     // From isolate to main isolate.
@@ -166,7 +146,8 @@ class _MyHomePageState extends State<MyHomePage> {
     SendPort replyPort = msg[3];
 
     /// Find today's stops and moves
-    DateTime today = DateTime.now().midnight;
+//    DateTime today = DateTime.now().midnight;
+    DateTime today = DateTime(2020, 02, 17).midnight;
     DataPreprocessor p = DataPreprocessor(today);
     List<Stop> stopsToday = p.findStops(points);
     List<Move> movesToday = p.findMoves(points, stopsToday);

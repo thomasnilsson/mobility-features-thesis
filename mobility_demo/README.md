@@ -1,16 +1,7 @@
 # mobility_demo
 
-Mobility Features Demo Application
-
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://flutter.dev/docs/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://flutter.dev/docs/cookbook)
-
-For help getting started with Flutter, view our
-[online documentation](https://flutter.dev/docs), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Change time and date in iOS simualtor
+Set date to 17th of Feb 2020, 19:41 +1 GMT
+```sh
+xcrun simctl status_bar booted override --time "2020-02-17T19:41:00+01:00"
+```

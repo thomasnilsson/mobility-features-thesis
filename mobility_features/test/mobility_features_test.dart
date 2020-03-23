@@ -23,14 +23,6 @@ void main() async {
     assert(d1.midnight == d2.midnight);
   });
 
-  test('Get unique dates', () async {
-    List<SingleLocationPoint> data = await Dataset().loadDataset(datasetPath);
-    final p = Preprocessor(data, moveDuration: Duration(minutes: 3));
-    print('Unique Dates:');
-    print('*' * 50);
-    printList(p.uniqueDates.toList());
-  });
-
   test('Run feature extraction', () async {
     List<SingleLocationPoint> data = await Dataset().loadDataset(datasetPath);
     List<Stop> stops = [];
@@ -169,7 +161,7 @@ void main() async {
 
       FeaturesAggregate features =
           FeaturesAggregate(date, stops, places, moves);
-      print('$date | RoutineIndex: ${features.routineIndex}');
+      print('$date | RoutineIndex: ${features.routineIndexDaily}');
     }
   });
 
@@ -278,10 +270,8 @@ void main() async {
       /// Save to file  by reading the content, appending it, and then writing
       List<Stop> stops = await stopSerializer.read();
       List<Move> moves = await moveSerializer.read();
-
       stops.addAll(newStops);
       moves.addAll(newMoves);
-
       stopSerializer.write(stops);
       moveSerializer.write(moves);
     }
