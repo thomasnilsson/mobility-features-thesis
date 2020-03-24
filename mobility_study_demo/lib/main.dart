@@ -157,30 +157,62 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  List<Widget> getContent() => [
-        Text(
-          'Statistics for today (thus far), ${formatDate(_features.date)} based on ${_features.historicalDates.length} previous dates.',
-          style: Theme.of(context).textTheme.body2,
+  Text makeText(String t) =>
+      Text(t, style: Theme.of(context).textTheme.display1);
+
+  GridView getGridView() {
+    return GridView.count(
+      primary: false,
+      padding: const EdgeInsets.all(20),
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      crossAxisCount: 2,
+      children: <Widget>[
+        Container(
+          padding: const EdgeInsets.all(8),
+          child: makeText("Routine Index: ${(_features.routineIndexDaily * 100).toStringAsFixed(1)}%"),
+          color: Colors.teal[100],
         ),
-        Text(
-          "You've have stuck ${_features.routineIndexDaily * 100} % to your routine.",
+        Container(
+          padding: const EdgeInsets.all(8),
+          child: makeText(
+            "Home Stay: ${(_features.homeStayDaily * 100).toStringAsFixed(1)}%",
+          ),
+          color: Colors.teal[200],
         ),
-        Text(
-          "You've stayed home ${_features.homeStayDaily * 100} % of the time.",
+        Container(
+          padding: const EdgeInsets.all(8),
+          child: makeText(
+            "Distance travelled: ${(_features.totalDistanceDaily / 1000).toStringAsFixed(1)} km",
+          ),
+          color: Colors.teal[300],
         ),
-        Text(
-          "You've travelled ${_features.totalDistanceDaily / 1000} km.",
+        Container(
+          padding: const EdgeInsets.all(8),
+          child: makeText(
+            "Significant Places: ${_features.numberOfClustersDaily}",
+          ),
+          color: Colors.teal[400],
         ),
-        Text(
-          "You've visited ${_features.numberOfClustersDaily} significant places.",
+        Container(
+          padding: const EdgeInsets.all(8),
+          child: makeText(
+            'Normalized Entropy: ${_features.normalizedEntropyDaily.toStringAsFixed(2)}',
+          ),
+          color: Colors.teal[500],
         ),
-        Text(
-          'Entropy for time spent at significant places is ${_features.normalizedEntropyDaily}',
+        Container(
+          padding: const EdgeInsets.all(8),
+          child: makeText(
+            'Location Variance: ${_features.locationVarianceDaily.toStringAsExponential(2)}',
+          ),
+          color: Colors.teal[600],
         ),
-        Text(
-          'Total location variance is ${_features.locationVarianceDaily}',
-        ),
-      ];
+      ],
+    );
+  }
+
+  //makeText('Stats for today (thus far), ${formatDate(_features.date)} based on ${_features.historicalDates.length} previous dates'),
 
   @override
   Widget build(BuildContext context) {
@@ -190,8 +222,8 @@ class _MyHomePageState extends State<MyHomePage> {
         title: Text(widget.title),
       ),
       body: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: _features == null ? noContent : getContent()),
+        children: <Widget>[Text('Stats for ${formatDate(_features.date)} based on ${_features.historicalDates.length} previous dates'), Expanded(child: getGridView())],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _buttonPressed,
         tooltip: 'Calculate features',
