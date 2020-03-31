@@ -15,6 +15,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'constants.dart';
 import 'package:uuid/uuid.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 part 'utils.dart';
 
@@ -42,11 +43,11 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   FeaturesAggregate _features;
 
-  Geolocator geo = Geolocator();
+  Geolocator _geoLocator = Geolocator();
   List<SingleLocationPoint> _points = [];
   List<Stop> _stops = [];
   List<Move> _moves = [];
-  Uuid uuid = Uuid();
+  String _uuid = 'NOT_SET';
 
   Future _loadStopsFromAssets() async {
     String contents = await rootBundle.loadString('data/all_stops.json');
@@ -114,10 +115,23 @@ class _MyHomePageState extends State<MyHomePage> {
     replyPort.send(f);
   }
 
+  Future<void> _loadUUID() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    _uuid = prefs.getString('uuid');
+    if (_uuid == null) {
+      _uuid = Uuid().v4();
+      print('UUID generated> $_uuid');
+      prefs.setString('uuid', _uuid);
+    } else {
+      print('Loaded UUID succesfully: $_uuid');
+      prefs.setString('uuid', _uuid);
+    }
+  }
+
   void _initLocation() async {
-    await geo.isLocationServiceEnabled().then((response) {
+    await _geoLocator.isLocationServiceEnabled().then((response) {
       if (response) {
-        geo.getPositionStream().listen((Position d) async {
+        _geoLocator.getPositionStream().listen((Position d) async {
           print('-' * 50);
           SingleLocationPoint p = SingleLocationPoint(
               Location(d.latitude, d.longitude), d.timestamp);
@@ -138,9 +152,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void start() async {
     _initLocation();
+    await _loadUUID();
     await _loadStopsFromAssets();
     await _loadMovesFromAssets();
     await _loadDataFromDevice();
+
     print('Dataset loaded, length = ${_points.length} points');
   }
 
@@ -213,7 +229,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void goToPatientPage() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => InfoPage(uuid.v4())),
+      MaterialPageRoute(builder: (context) => InfoPage(_uuid)),
     );
   }
 
@@ -258,23 +274,24 @@ class InfoPage extends StatelessWidget {
       ),
       body: Center(
           child: Container(
-            margin: EdgeInsets.all(10),
-        child:
-          Column(
-            children: <Widget>[
-                  Text(
-                    "Your participant ID:",
-                    style: TextStyle(fontSize: 20),
-                  ),
-                  Text(
-                    uuid,
-                    style: TextStyle(fontSize: 12),
-                  ),
-                  Container(margin: EdgeInsets.only(top: 20),
-                  child: Text(
-                      'This is some information regarding the features and what we do with your data.'),)
-                ],
-          ),
+        margin: EdgeInsets.all(10),
+        child: Column(
+          children: <Widget>[
+            Text(
+              "Your participant ID:",
+              style: TextStyle(fontSize: 20),
+            ),
+            Text(
+              uuid,
+              style: TextStyle(fontSize: 12),
+            ),
+            Container(
+              margin: EdgeInsets.only(top: 20),
+              child: Text(
+                  'This is some information regarding the features and what we do with your data.'),
+            )
+          ],
+        ),
       )),
     );
   }
