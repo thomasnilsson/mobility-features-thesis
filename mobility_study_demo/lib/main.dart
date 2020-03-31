@@ -13,43 +13,40 @@ import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:io';
 import 'dart:convert';
+import 'constants.dart';
+import 'package:uuid/uuid.dart';
 
 part 'utils.dart';
 
 void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        primarySwatch: Colors.blueGrey,
-      ),
-      home: MyHomePage(title: 'Mobility Study', number: 10),
-    );
+    return new MaterialApp(
+        title: 'Mobility Study',
+        debugShowCheckedModeBanner: false,
+        home: MyHomePage(title: title));
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  MyHomePage({Key key, this.title, this.number}) : super(key: key);
+  MyHomePage({Key key, this.title}) : super(key: key);
 
   final String title;
-  final int number;
 
   @override
   _MyHomePageState createState() => _MyHomePageState();
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  FeaturesAggregate _features = null;
+  FeaturesAggregate _features;
 
   Geolocator geo = Geolocator();
   List<SingleLocationPoint> _points = [];
   List<Stop> _stops = [];
   List<Move> _moves = [];
+  Uuid uuid = Uuid();
 
   Future _loadStopsFromAssets() async {
     String contents = await rootBundle.loadString('data/all_stops.json');
@@ -135,7 +132,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
     start();
   }
@@ -144,7 +140,6 @@ class _MyHomePageState extends State<MyHomePage> {
     _initLocation();
     await _loadStopsFromAssets();
     await _loadMovesFromAssets();
-
     await _loadDataFromDevice();
     print('Dataset loaded, length = ${_points.length} points');
   }
@@ -157,78 +152,130 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  Text makeText(String t) =>
-      Text(t, style: Theme.of(context).textTheme.display1);
-
-  GridView getGridView() {
-    return GridView.count(
-      primary: false,
-      padding: const EdgeInsets.all(20),
-      crossAxisSpacing: 10,
-      mainAxisSpacing: 10,
-      crossAxisCount: 2,
+  Widget featuresOverview() {
+    return ListView(
       children: <Widget>[
-        Container(
-          padding: const EdgeInsets.all(8),
-          child: makeText("Routine Index: ${(_features.routineIndexDaily * 100).toStringAsFixed(1)}%"),
-          color: Colors.teal[100],
-        ),
-        Container(
-          padding: const EdgeInsets.all(8),
-          child: makeText(
-            "Home Stay: ${(_features.homeStayDaily * 100).toStringAsFixed(1)}%",
-          ),
-          color: Colors.teal[200],
-        ),
-        Container(
-          padding: const EdgeInsets.all(8),
-          child: makeText(
-            "Distance travelled: ${(_features.totalDistanceDaily / 1000).toStringAsFixed(1)} km",
-          ),
-          color: Colors.teal[300],
-        ),
-        Container(
-          padding: const EdgeInsets.all(8),
-          child: makeText(
-            "Significant Places: ${_features.numberOfClustersDaily}",
-          ),
-          color: Colors.teal[400],
-        ),
-        Container(
-          padding: const EdgeInsets.all(8),
-          child: makeText(
-            'Normalized Entropy: ${_features.normalizedEntropyDaily.toStringAsFixed(2)}',
-          ),
-          color: Colors.teal[500],
-        ),
-        Container(
-          padding: const EdgeInsets.all(8),
-          child: makeText(
-            'Location Variance: ${_features.locationVarianceDaily.toStringAsExponential(2)}',
-          ),
-          color: Colors.teal[600],
-        ),
+        entry("Dates today is compared to",
+            "${_features.historicalDates.length}", Icons.date_range),
+        entry(
+            "Routine index",
+            "${(_features.routineIndexDaily * 100).toStringAsFixed(1)}%",
+            Icons.repeat),
+        entry(
+            "Home stay",
+            "${(_features.homeStayDaily * 100).toStringAsFixed(1)}%",
+            Icons.home),
+        entry(
+            "Distance travelled",
+            "${(_features.totalDistanceDaily / 1000).toStringAsFixed(2)} km",
+            Icons.directions_walk),
+        entry("Significant places", "${_features.numberOfClustersDaily}",
+            Icons.place),
+        entry(
+            "Normalized entropy",
+            "${_features.normalizedEntropyDaily.toStringAsFixed(2)}",
+            Icons.equalizer),
+        entry(
+            "Location variance",
+            "${(111.133 * _features.locationVarianceDaily).toStringAsFixed(5)} km",
+            Icons.crop_rotate),
       ],
     );
   }
 
-  //makeText('Stats for today (thus far), ${formatDate(_features.date)} based on ${_features.historicalDates.length} previous dates'),
+  Widget entry(String key, String value, IconData icon) {
+    return Container(
+        padding: const EdgeInsets.all(2),
+        margin: EdgeInsets.all(3),
+        child: ListTile(
+          leading: Icon(icon),
+          title: Text(key),
+          trailing: Text(value),
+        ));
+  }
+
+  List<Widget> getContent() => <Widget>[
+        Container(
+            margin: EdgeInsets.all(25),
+            child: Column(children: [
+              Text(
+                'Statistics for',
+                style: TextStyle(fontSize: 20),
+              ),
+              Text(
+                '${formatDate(_features.date)}',
+                style: TextStyle(fontSize: 20, color: Colors.blue),
+              ),
+            ])),
+        Expanded(child: featuresOverview())
+      ];
+
+  void goToPatientPage() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => InfoPage(uuid.v4())),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     List<Widget> noContent = [Text('No features yet...')];
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title),
+        title: Text(title),
+        actions: <Widget>[
+          IconButton(
+            onPressed: goToPatientPage,
+            icon: Icon(
+              Icons.info,
+              color: Colors.white,
+            ),
+          )
+        ],
       ),
       body: Column(
-        children: <Widget>[Text('Stats for ${formatDate(_features.date)} based on ${_features.historicalDates.length} previous dates'), Expanded(child: getGridView())],
+        children: _features == null ? noContent : getContent(),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _buttonPressed,
         tooltip: 'Calculate features',
         child: Icon(Icons.refresh),
       ), // This trailing comma makes auto-formatting nicer for build methods.
+    );
+  }
+}
+
+class InfoPage extends StatelessWidget {
+  String uuid;
+
+  InfoPage(this.uuid);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Info Page"),
+      ),
+      body: Center(
+          child: Container(
+            margin: EdgeInsets.all(10),
+        child:
+          Column(
+            children: <Widget>[
+                  Text(
+                    "Your participant ID:",
+                    style: TextStyle(fontSize: 20),
+                  ),
+                  Text(
+                    uuid,
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  Container(margin: EdgeInsets.only(top: 20),
+                  child: Text(
+                      'This is some information regarding the features and what we do with your data.'),)
+                ],
+          ),
+      )),
     );
   }
 }

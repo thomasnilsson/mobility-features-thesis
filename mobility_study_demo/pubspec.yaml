@@ -19,6 +19,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  uuid: ^2.0.4
   flutter_launcher_icons: 0.7.4
   geolocator:
     path: ../geolocator_custom/

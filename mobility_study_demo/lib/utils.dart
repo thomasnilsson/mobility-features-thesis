@@ -1,6 +1,6 @@
 part of mobility;
 
-String formatDate(DateTime date) => new DateFormat("MMMM d").format(date);
+String formatDate(DateTime date) => new DateFormat("MMMM dd yyyy").format(date);
 
 class FileUtil {
   Future<String> get _localPath async {
