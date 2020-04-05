@@ -16,6 +16,9 @@ import 'dart:convert';
 import 'constants.dart';
 import 'package:uuid/uuid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:foreground_service/foreground_service.dart';
+
+import 'dart:io' show Platform;
 
 part 'utils.dart';
 
@@ -44,10 +47,13 @@ class _MyHomePageState extends State<MyHomePage> {
   FeaturesAggregate _features;
 
   Geolocator _geoLocator = Geolocator();
-  List<SingleLocationPoint> _points = [];
+  List<SingleLocationPoint> _pointsBuffer = [];
   List<Stop> _stops = [];
   List<Move> _moves = [];
   String _uuid = 'NOT_SET';
+  Serializer<SingleLocationPoint> _singleLocationPointSerializer;
+  Serializer<Stop> _stopSerializer;
+  Serializer<Move> _moveSerializer;
 
   Future _loadStopsFromAssets() async {
     String contents = await rootBundle.loadString('data/all_stops.json');
@@ -62,8 +68,10 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future _loadDataFromDevice() async {
-    List<SingleLocationPoint> localData = await FileUtil().readLocationData();
-    _points.addAll(localData);
+//    List<SingleLocationPoint> localData = await FileUtil().readLocationData();
+    List<SingleLocationPoint> localData =
+        await _singleLocationPointSerializer.read();
+    _pointsBuffer.addAll(localData);
   }
 
   /// Feature Calculation ASYNC
@@ -72,8 +80,10 @@ class _MyHomePageState extends State<MyHomePage> {
     ReceivePort receivePort = ReceivePort();
     await Isolate.spawn(calcFeaturesAsync, receivePort.sendPort);
     SendPort sendPort = await receivePort.first;
+    List<SingleLocationPoint> todaysPoints =
+        await _singleLocationPointSerializer.read();
     FeaturesAggregate _features =
-        await relay(sendPort, _points, _stops, _moves);
+        await relay(sendPort, todaysPoints, _stops, _moves);
     return _features;
   }
 
@@ -131,17 +141,58 @@ class _MyHomePageState extends State<MyHomePage> {
   void _initLocation() async {
     await _geoLocator.isLocationServiceEnabled().then((response) {
       if (response) {
-        _geoLocator.getPositionStream().listen((Position d) async {
-          print('-' * 50);
-          SingleLocationPoint p = SingleLocationPoint(
-              Location(d.latitude, d.longitude), d.timestamp);
-          print(p);
-          FileUtil().writeSingleLocationPoint(p);
-        });
+        _geoLocator.getPositionStream().listen(onData);
       } else {
         print('Location service not enabled');
       }
     });
+  }
+
+  void onData(Position d) async {
+    print('-' * 50);
+    SingleLocationPoint p =
+        SingleLocationPoint(Location(d.latitude, d.longitude), d.timestamp);
+    _pointsBuffer.add(p);
+
+    print('New location point: $p');
+
+    /// If buffer has reached max capacity, write to file and empty the buffer
+    /// This is to avoid constantly reading and writing from file each time a new
+    /// point comes in.
+    if (_pointsBuffer.length >= 5) {
+      _singleLocationPointSerializer.write(_pointsBuffer);
+      _pointsBuffer = [];
+    }
+  }
+
+  //use an async method so we can await
+  void startForegroundServiceAndroid() async {
+    if (!(await ForegroundService.foregroundServiceIsStarted())) {
+      await ForegroundService.setServiceIntervalSeconds(5);
+
+      //necessity of editMode is dubious (see function comments)
+      await ForegroundService.notification.startEditMode();
+
+      await ForegroundService.notification
+          .setTitle("Example Title: ${DateTime.now()}");
+      await ForegroundService.notification
+          .setText("Example Text: ${DateTime.now()}");
+
+      await ForegroundService.notification.finishEditMode();
+
+      try {
+        await ForegroundService.startForegroundService(
+            foregroundServiceFunction);
+        await ForegroundService.getWakeLock();
+      } catch (error) {
+        print(error);
+      }
+    }
+  }
+
+  void foregroundServiceFunction() {
+    debugPrint("The current time is: ${DateTime.now()}");
+    ForegroundService.notification.setText("The time was: ${DateTime.now()}");
   }
 
   @override
@@ -152,12 +203,28 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void start() async {
     _initLocation();
+    _initSerializers();
+
+    /// Start foreground service in order to track location in background
+    /// (only required on Android, iOS allows background location by default)
+    if (Platform.isAndroid) {
+      startForegroundServiceAndroid();
+    }
+
     await _loadUUID();
     await _loadStopsFromAssets();
     await _loadMovesFromAssets();
     await _loadDataFromDevice();
 
-    print('Dataset loaded, length = ${_points.length} points');
+    print('Dataset loaded, length = ${_pointsBuffer.length} points');
+  }
+
+  void _initSerializers() async {
+    final dir = await getApplicationDocumentsDirectory();
+    _singleLocationPointSerializer =
+        Serializer<SingleLocationPoint>(new File('${dir.path}/locations.json'));
+    _stopSerializer = Serializer<Stop>(new File('${dir.path}/stops.json'));
+    _moveSerializer = Serializer<Move>(new File('${dir.path}/moves.json'));
   }
 
   void _buttonPressed() async {
@@ -235,7 +302,9 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    List<Widget> noContent = [Text('No features yet...')];
+    List<Widget> noContent = [
+      Text('No features yet, click the refresh button to generate features')
+    ];
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
