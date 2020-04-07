@@ -367,8 +367,25 @@ void main() async {
       List<Move> movesToday = preprocessor.findMoves(pointsAll, stopsToday);
 
       /// Load old stops and moves
-      List<Stop> stopsOld = await stopSerializer.load();
-      List<Move> movesOld = await moveSerializer.load();
+      List<Stop> stopsLoaded = await stopSerializer.load();
+      List<Move> movesLoaded = await moveSerializer.load();
+
+      DateTime fourWeeksAgo = today.subtract(Duration(days: 28));
+
+      /// Filter out stops and moves which were computed today,
+      /// which were just loaded as well as stops older than 28 days
+      List<Stop> stopsOld = stopsLoaded
+          .where((s) => s.arrival.midnight != today.midnight&&
+          fourWeeksAgo.leq(s.arrival.midnight))
+          .toList();
+
+      List<Move> movesOld = movesLoaded
+          .where((m) =>
+              m.stopFrom.arrival.midnight != today.midnight &&
+              fourWeeksAgo.leq(m.stopFrom.arrival.midnight))
+          .toList();
+
+      /// Concatenate old and and new
       List<Stop> stopsAll = stopsOld + stopsToday;
       List<Move> movesAll = movesOld + movesToday;
 
@@ -376,10 +393,15 @@ void main() async {
       List<Place> placesAll = preprocessor.findPlaces(stopsAll);
 
       /// Save today's stops and moves.
-      /// Naive approach, assumes this is done 23:59:59
-      /// and that it hasn't been done previously on this day
-      stopSerializer.save(stopsToday);
-      moveSerializer.save(movesToday);
+      /// Naive approach, is to just append - but this
+      /// assumes this processing is done 23:59:59
+      /// and that it hasn't been done previously on this day.
+      /// By flushing the file and writing ALL stops and moves,
+      /// the issue is avoided, albeit by using more compute power.
+      stopSerializer.flush();
+      moveSerializer.flush();
+      stopSerializer.save(stopsAll);
+      moveSerializer.save(movesAll);
 
       /// Calculate features
       FeaturesAggregate features =

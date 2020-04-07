@@ -119,6 +119,7 @@ class Serializer<E> {
   /// Deletes the content of the file
   Future<void> flush() async {
     await file.writeAsString('', mode: FileMode.write);
+    print('Flushed $E-file!');
   }
 
   /// Writes a list of [Serializable] to the file given in the constructor.

@@ -1,5 +1,6 @@
 library mobility;
 
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 
 import 'package:path_provider/path_provider.dart';
@@ -16,62 +17,47 @@ import 'dart:convert';
 import 'constants.dart';
 import 'package:uuid/uuid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:foreground_service/foreground_service.dart';
-
-import 'dart:io' show Platform;
 
 part 'utils.dart';
 
-void main() => runApp(MyApp());
+void main() => runApp(MobilityStudy());
 
-class MyApp extends StatelessWidget {
+class MobilityStudy extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return new MaterialApp(
         title: 'Mobility Study',
         debugShowCheckedModeBanner: false,
-        home: MyHomePage(title: title));
+        home: MainPage(title: title));
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  MyHomePage({Key key, this.title}) : super(key: key);
+class MainPage extends StatefulWidget {
+  MainPage({Key key, this.title}) : super(key: key);
 
   final String title;
 
   @override
-  _MyHomePageState createState() => _MyHomePageState();
+  _MainPageState createState() => _MainPageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MainPageState extends State<MainPage> {
   FeaturesAggregate _features;
 
   Geolocator _geoLocator = Geolocator();
   List<SingleLocationPoint> _pointsBuffer = [];
-  List<Stop> _stops = [];
-  List<Move> _moves = [];
   String _uuid = 'NOT_SET';
-  Serializer<SingleLocationPoint> _singleLocationPointSerializer;
+  Serializer<SingleLocationPoint> _pointSerializer;
   Serializer<Stop> _stopSerializer;
   Serializer<Move> _moveSerializer;
+  static const int BUFFER_SIZE = 100;
 
-  Future _loadStopsFromAssets() async {
-    String contents = await rootBundle.loadString('data/all_stops.json');
-    List decoded = json.decode(contents);
-    _stops = decoded.map((x) => Stop.fromJson(x)).toList();
-  }
+  void initialize() async {
+    _initLocation();
+    _initSerializers();
 
-  Future _loadMovesFromAssets() async {
-    String contents = await rootBundle.loadString('data/all_moves.json');
-    List decoded = json.decode(contents);
-    _moves = decoded.map((x) => Move.fromJson(x)).toList();
-  }
-
-  Future _loadDataFromDevice() async {
-//    List<SingleLocationPoint> localData = await FileUtil().readLocationData();
-    List<SingleLocationPoint> localData =
-        await _singleLocationPointSerializer.read();
-    _pointsBuffer.addAll(localData);
+    await _loadUUID();
+    print('Dataset loaded, length = ${_pointsBuffer.length} points');
   }
 
   /// Feature Calculation ASYNC
@@ -80,10 +66,27 @@ class _MyHomePageState extends State<MyHomePage> {
     ReceivePort receivePort = ReceivePort();
     await Isolate.spawn(calcFeaturesAsync, receivePort.sendPort);
     SendPort sendPort = await receivePort.first;
-    List<SingleLocationPoint> todaysPoints =
-        await _singleLocationPointSerializer.read();
-    FeaturesAggregate _features =
-        await relay(sendPort, todaysPoints, _stops, _moves);
+
+    /// Load points, stops and moves via package
+    List<SingleLocationPoint> points = await _pointSerializer.load();
+    List<Stop> stopsOld = await _stopSerializer.load();
+    List<Move> movesOld = await _moveSerializer.load();
+
+    /// TODO: Remove
+    /// Load asset-stops and moves
+    List<Stop> stopsAssets = await FileUtil().loadStopsFromAssets();
+    List<Move> movesAssets = await FileUtil().loadMovesFromAssets();
+
+    /// TODO: Remove
+    /// Merge
+//    List<Stop> stops = stopsAssets + stopsOld;
+//    List<Move> moves = movesAssets + movesOld;
+    List<Stop> stops = stopsAssets;
+    List<Move> moves = movesAssets;
+
+    FeaturesAggregate _features = await relay(sendPort, points, stops, moves);
+//    FeaturesAggregate _features =
+//        await relay(sendPort, points, stopsOld, movesOld);
     return _features;
   }
 
@@ -94,35 +97,69 @@ class _MyHomePageState extends State<MyHomePage> {
     return receivePort.first;
   }
 
-  static calcFeaturesAsync(SendPort sendPort) async {
-    ReceivePort receivePort = ReceivePort();
+  static void calcFeaturesAsync(SendPort sendPort) async {
+    final receivePort = ReceivePort();
     sendPort.send(receivePort.sendPort);
-    var msg = await receivePort.first;
+    final msg = await receivePort.first;
 
     List<SingleLocationPoint> points = msg[0];
-    List<Stop> stops = msg[1];
-    List<Move> moves = msg[2];
-    SendPort replyPort = msg[3];
-
-    /// Find today's stops and moves
+    List<Stop> stopsLoaded = msg[1];
+    List<Move> movesLoaded = msg[2];
+    final replyPort = msg[3];
 //    DateTime today = DateTime.now().midnight;
-    DateTime today = DateTime(2020, 02, 17).midnight;
-    DataPreprocessor p = DataPreprocessor(today);
-    List<Stop> stopsToday = p.findStops(points);
-    List<Move> movesToday = p.findMoves(points, stopsToday);
+    DateTime today = DateTime(2020, 02, 17);
+    DataPreprocessor preprocessor = DataPreprocessor(today);
+    List<Stop> stopsToday = preprocessor.findStops(points);
+    List<Move> movesToday = preprocessor.findMoves(points, stopsToday);
 
-    /// Add historic stops and moves
-    stops.addAll(stopsToday);
-    moves.addAll(movesToday);
+    DateTime fourWeeksAgo = today.subtract(Duration(days: 28));
 
-    /// Find all places
-    List<Place> places = p.findPlaces(stops);
+    /// Filter out stops and moves which were computed today,
+    /// which were just loaded as well as stops older than 28 days
+    List<Stop> stopsOld = stopsLoaded.isEmpty
+        ? stopsLoaded
+        : stopsLoaded
+            .where((s) =>
+                s.arrival.midnight != today.midnight &&
+                fourWeeksAgo.leq(s.arrival.midnight))
+            .toList();
+
+    List<Move> movesOld = movesLoaded.isEmpty
+        ? movesLoaded
+        : movesLoaded
+            .where((m) =>
+                m.stopFrom.arrival.midnight != today.midnight &&
+                fourWeeksAgo.leq(m.stopFrom.arrival.midnight))
+            .toList();
+
+    /// Get all stop, moves, and places
+//    List<Stop> stopsAll = stopsOld + stopsToday;
+//    List<Move> movesAll = movesOld + movesToday;
+    List<Stop> stopsAll = stopsOld;
+    List<Move> movesAll = movesOld;
+    print('No. stops: ${stopsAll.length}');
+    print('No. moves: ${movesAll.length}');
+
+    List<Place> placesAll = preprocessor.findPlaces(stopsAll);
 
     /// Extract features
-    FeaturesAggregate f = FeaturesAggregate(today, stops, places, moves);
+    FeaturesAggregate features =
+        FeaturesAggregate(today, stopsAll, placesAll, movesAll);
+
+    features.printOverview();
 
     /// Send back response
-    replyPort.send(f);
+    replyPort.send(features);
+  }
+
+  Future<String> _uploadDataToFirebase(File f, String type) async {
+    String fireBaseFileName = '${_uuid}_${type}.json';
+    StorageReference firebaseStorageRef =
+        FirebaseStorage.instance.ref().child(fireBaseFileName);
+    StorageUploadTask uploadTask = firebaseStorageRef.putFile(f);
+    StorageTaskSnapshot downloadUrl = await uploadTask.onComplete;
+    String url = await downloadUrl.ref.getDownloadURL();
+    return url;
   }
 
   Future<void> _loadUUID() async {
@@ -159,94 +196,86 @@ class _MyHomePageState extends State<MyHomePage> {
     /// If buffer has reached max capacity, write to file and empty the buffer
     /// This is to avoid constantly reading and writing from file each time a new
     /// point comes in.
-    if (_pointsBuffer.length >= 5) {
-      _singleLocationPointSerializer.write(_pointsBuffer);
+    if (_pointsBuffer.length >= BUFFER_SIZE) {
+      _pointSerializer.save(_pointsBuffer);
       _pointsBuffer = [];
     }
-  }
-
-  //use an async method so we can await
-  void startForegroundServiceAndroid() async {
-    if (!(await ForegroundService.foregroundServiceIsStarted())) {
-      await ForegroundService.setServiceIntervalSeconds(5);
-
-      //necessity of editMode is dubious (see function comments)
-      await ForegroundService.notification.startEditMode();
-
-      await ForegroundService.notification
-          .setTitle("Example Title: ${DateTime.now()}");
-      await ForegroundService.notification
-          .setText("Example Text: ${DateTime.now()}");
-
-      await ForegroundService.notification.finishEditMode();
-
-      try {
-        await ForegroundService.startForegroundService(
-            foregroundServiceFunction);
-        await ForegroundService.getWakeLock();
-      } catch (error) {
-        print(error);
-      }
-    }
-  }
-
-  void foregroundServiceFunction() {
-    debugPrint("The current time is: ${DateTime.now()}");
-    ForegroundService.notification.setText("The time was: ${DateTime.now()}");
   }
 
   @override
   void initState() {
     super.initState();
-    start();
+    initialize();
   }
 
-  void start() async {
-    _initLocation();
-    _initSerializers();
-
-    /// Start foreground service in order to track location in background
-    /// (only required on Android, iOS allows background location by default)
-    if (Platform.isAndroid) {
-      startForegroundServiceAndroid();
-    }
-
-    await _loadUUID();
-    await _loadStopsFromAssets();
-    await _loadMovesFromAssets();
-    await _loadDataFromDevice();
-
-    print('Dataset loaded, length = ${_pointsBuffer.length} points');
+  Future<File> _file(String type) async {
+    String path = (await getApplicationDocumentsDirectory()).path;
+    return new File('$path/$type.json');
   }
 
   void _initSerializers() async {
-    final dir = await getApplicationDocumentsDirectory();
-    _singleLocationPointSerializer =
-        Serializer<SingleLocationPoint>(new File('${dir.path}/locations.json'));
-    _stopSerializer = Serializer<Stop>(new File('${dir.path}/stops.json'));
-    _moveSerializer = Serializer<Move>(new File('${dir.path}/moves.json'));
+    File pointsFile = await FileUtil().pointsFile;
+    File stopsFile = await FileUtil().stopsFile;
+    File movesFile = await FileUtil().movesFile;
+
+    _pointSerializer = Serializer<SingleLocationPoint>(pointsFile, debug: true);
+    _stopSerializer = Serializer<Stop>(stopsFile, debug: true);
+    _moveSerializer = Serializer<Move>(movesFile, debug: true);
   }
 
   void _buttonPressed() async {
     print('Loading features...');
-    var f = await _getFeatures();
+    FeaturesAggregate f = await _getFeatures();
+
     setState(() {
       _features = f;
     });
+
+    _saveStopsAndMoves(f);
+  }
+
+  Future<void> _saveStopsAndMoves(FeaturesAggregate features) async {
+    /// Clean up files
+    await _stopSerializer.flush();
+    await _moveSerializer.flush();
+
+    /// Write updates values
+    await _stopSerializer.save(features.stops);
+    await _moveSerializer.save(features.moves);
+
+    File pointsFile = await FileUtil().pointsFile;
+    File stopsFile = await FileUtil().stopsFile;
+    File movesFile = await FileUtil().movesFile;
+
+    print('Checkpoint');
+
+    /// Upload data
+    String urlPoints = await _uploadDataToFirebase(pointsFile, 'points');
+    print(urlPoints);
+
+    String urlStops = await _uploadDataToFirebase(stopsFile, 'stops');
+    print(urlStops);
+
+    String urlMoves = await _uploadDataToFirebase(movesFile, 'moves');
+    print(urlMoves);
   }
 
   Widget featuresOverview() {
     return ListView(
       children: <Widget>[
-        entry("Dates today is compared to",
-            "${_features.historicalDates.length}", Icons.date_range),
+        entry("No. days of data", "${_features.uniqueDates.length}",
+            Icons.date_range),
         entry(
             "Routine index",
-            "${(_features.routineIndexDaily * 100).toStringAsFixed(1)}%",
+            _features.routineIndexDaily < 0
+                ? "?"
+                : "${(_features.routineIndexDaily * 100).toStringAsFixed(1)}%",
             Icons.repeat),
         entry(
             "Home stay",
-            "${(_features.homeStayDaily * 100).toStringAsFixed(1)}%",
+            _features.homeStayDaily < 0
+                ? "?"
+                : "${(_features.homeStayDaily * 100).toStringAsFixed(1)}%",
             Icons.home),
         entry(
             "Distance travelled",
@@ -255,7 +284,7 @@ class _MyHomePageState extends State<MyHomePage> {
         entry("Significant places", "${_features.numberOfClustersDaily}",
             Icons.place),
         entry(
-            "Normalized entropy",
+            "Time-place distribution",
             "${_features.normalizedEntropyDaily.toStringAsFixed(2)}",
             Icons.equalizer),
         entry(
@@ -335,6 +364,13 @@ class InfoPage extends StatelessWidget {
 
   InfoPage(this.uuid);
 
+  Widget textBox(String t, [TextStyle style]) {
+    return Container(
+      padding: EdgeInsets.only(top: 15),
+      child: Text(t, style: style),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -345,20 +381,16 @@ class InfoPage extends StatelessWidget {
           child: Container(
         margin: EdgeInsets.all(10),
         child: Column(
-          children: <Widget>[
-            Text(
-              "Your participant ID:",
-              style: TextStyle(fontSize: 20),
-            ),
-            Text(
-              uuid,
-              style: TextStyle(fontSize: 12),
-            ),
-            Container(
-              margin: EdgeInsets.only(top: 20),
-              child: Text(
-                  'This is some information regarding the features and what we do with your data.'),
-            )
+          children: [
+            textBox('This app is a part of a Master\'s Thesis study.'),
+            textBox(
+                'Your location data will be collected anonymously during 2-4 weeks, then analyzed and lastly deleted permanently.'),
+            textBox(
+                'If you have any questions regarding the study, shoot me an email at tnni@dtu.dk.'),
+            textBox('Thank you for your contribution!'),
+            textBox("Your participant ID is:",
+                TextStyle(fontSize: 25, color: Colors.blue)),
+            textBox(uuid, TextStyle(fontSize: 14, color: Colors.black38)),
           ],
         ),
       )),

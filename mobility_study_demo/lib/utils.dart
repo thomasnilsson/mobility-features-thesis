@@ -3,41 +3,42 @@ part of mobility;
 String formatDate(DateTime date) => new DateFormat("MMMM dd yyyy").format(date);
 
 class FileUtil {
-  Future<String> get _localPath async {
-    final directory = await getApplicationDocumentsDirectory();
-
-    return directory.path;
+  Future<File> _file(String type) async {
+    String path = (await getApplicationDocumentsDirectory()).path;
+    return new File('$path/$type.json');
   }
 
-  Future<File> get locationDataFile async {
-    final path = await _localPath;
-    print('Local path: ${path}');
-    String fileName = '$path/location_data.json';
-    return File(fileName);
+  Future<File> get pointsFile async => await _file('locations');
+
+  Future<File> get stopsFile async => await _file('stops');
+
+  Future<File> get movesFile async => await _file('moves');
+
+  Future<Iterable<Map<String, dynamic>>> _loadFromAssets(String path) async {
+    String delimiter = '\n';
+    String content = await rootBundle.loadString(path);
+    print(content);
+
+    /// Split content into lines by delimiting them
+    List<String> lines = content.split(delimiter);
+
+    print('lines length ${lines.length}');
+    Iterable<Map<String, dynamic>> maps = lines
+        .sublist(0, lines.length - 1)
+        .map((e) => json.decode(e))
+        .map((e) => Map<String, dynamic>.from(e));
+
+    return maps;
   }
 
-  Future<File> writeSingleLocationPoint(SingleLocationPoint p) async {
-    File contentsFile = await locationDataFile;
-    String content = '${json.encode(p.toJson())}\n';
-    contentsFile.writeAsString(content, mode: FileMode.append);
-    return contentsFile;
+  Future<List<Stop>> loadStopsFromAssets() async {
+    final maps = await _loadFromAssets('data/all_stops.json');
+    return maps.map((x) => Stop.fromJson(x)).toList();
   }
 
-  Future<List<SingleLocationPoint>> readLocationData() async {
-    List<SingleLocationPoint> points = [];
-    final file = await locationDataFile;
-
-    await file.readAsString().then((String contents) {
-      List<String> tokens = contents.split('\n');
-      tokens.removeLast(); // last element is the empty string, so we remove it
-
-      for (String t in tokens) {
-        var dec2 = json.decode(t);
-        SingleLocationPoint p = SingleLocationPoint.fromJson(dec2);
-        points.add(p);
-      }
-    });
-    return points;
+  Future<List<Move>> loadMovesFromAssets() async {
+    final maps = await _loadFromAssets('data/all_moves.json');
+    return maps.map((x) => Move.fromJson(x)).toList();
   }
 
   void printList(List l) {
@@ -46,6 +47,4 @@ class FileUtil {
     }
     print('-' * 50);
   }
-
-
 }
