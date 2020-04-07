@@ -324,11 +324,11 @@ void main() async {
 
   test('Simulate everything', () async {
     Serializer<SingleLocationPoint> dataSerializer =
-        Serializer(new File('$testDataDir/single_location_points.json'));
+        Serializer(new File('$testDataDir/all_points.json'));
     Serializer<Stop> stopSerializer =
-        Serializer(new File('$testDataDir/stops.json'));
+        Serializer(new File('$testDataDir/all_stops.json'));
     Serializer<Move> moveSerializer =
-        Serializer(new File('$testDataDir/moves.json'));
+        Serializer(new File('$testDataDir/all_moves.json'));
 
     /// Reset file content
     dataSerializer.flush();
@@ -408,5 +408,26 @@ void main() async {
           FeaturesAggregate(today, stopsAll, placesAll, movesAll);
       features.printOverview();
     }
+  });
+
+  test('Test single after the fact', () async {
+    Serializer<Stop> stopSerializer =
+    Serializer(new File('$testDataDir/all_stops.json'));
+    Serializer<Move> moveSerializer =
+    Serializer(new File('$testDataDir/all_moves.json'));
+
+    List<Stop> stops = await stopSerializer.load();
+    List<Move> moves = await moveSerializer.load();
+
+    print('No. stops: ${stops.length}');
+    print('No. moves: ${moves.length}');
+
+    DateTime today = DateTime(2020, 02, 17);
+
+    DataPreprocessor preprocessor = DataPreprocessor(today);
+    List<Place> places = preprocessor.findPlaces(stops);
+
+    FeaturesAggregate features = FeaturesAggregate(today, stops, places, moves);
+    features.printOverview();
   });
 }

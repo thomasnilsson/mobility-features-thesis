@@ -63,7 +63,7 @@ class FeaturesAggregate {
 
   /// Total distance travelled in meters for the specified date
   double get totalDistanceDaily =>
-      _movesDaily.map((m) => (m.distance)).fold(0, (a, b) => a + b);
+      _movesDaily.map((m) => (m.distance)).fold(0.0, (a, b) => a + b);
 
   /// Routine index (daily)
   double get routineIndexDaily =>
@@ -75,6 +75,7 @@ class FeaturesAggregate {
 
   /// Home Stay
   double get homeStay {
+    if (places.isEmpty) return -1.0;
     int total =
         _places.map((p) => p.duration.inMilliseconds).fold(0, (a, b) => a + b);
 
@@ -85,6 +86,7 @@ class FeaturesAggregate {
 
   /// Home Stay Daily
   double get homeStayDaily {
+    if (places.isEmpty) return -1.0;
     int total = _placesDaily
         .map((p) => p.durationForDate(_date).inMilliseconds)
         .fold(0, (a, b) => a + b);
@@ -128,6 +130,7 @@ class FeaturesAggregate {
             numberOfClusters))
         .toList();
 
+    if (matrices.isEmpty) return -1.0;
     HourMatrix avgMatrix = HourMatrix.average(matrices);
 
     /// For each date in current, compute the error between it,
@@ -139,31 +142,6 @@ class FeaturesAggregate {
       avgError += hm.computeError(avgMatrix) / current.length;
     }
     return 1 - avgError;
-  }
-
-  double _calcRoutineIndexOld() {
-    HourMatrixOld hourMatrixToday =
-        HourMatrixOld(_stopsDaily, numberOfClusters);
-    double totalError = 0.0;
-
-    /// Extract past dates
-    List<DateTime> datesHist = historicalDates;
-
-    if (datesHist.isEmpty) {
-      return -1.0;
-    }
-
-    /// TODO: Only calculate error between a start and end time
-    for (DateTime d in datesHist) {
-      List<Stop> histStops =
-          stops.where((s) => s.arrival.midnight == d.midnight).toList();
-      HourMatrixOld x = HourMatrixOld(histStops, numberOfClusters);
-      totalError += hourMatrixToday.computeError(x);
-    }
-    // Average error
-    totalError = totalError / datesHist.length;
-
-    return 1 - totalError;
   }
 
   /// Entropy calculates how dispersed time is between places

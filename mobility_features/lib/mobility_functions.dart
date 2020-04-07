@@ -108,8 +108,10 @@ class Serializer<E> {
   File file;
   int dayWindow;
   String delimiter = '\n';
+  bool debug;
 
-  Serializer(this.file) {
+  Serializer(this.file, {this.debug = false}) {
+    _debugPrint('Initializing Serializer for ${file.path}');
     bool exists = file.existsSync();
     if (!exists) {
       flush();
@@ -119,11 +121,12 @@ class Serializer<E> {
   /// Deletes the content of the file
   Future<void> flush() async {
     await file.writeAsString('', mode: FileMode.write);
-    print('Flushed $E-file!');
+    _debugPrint('Flushed file!');
   }
 
   /// Writes a list of [Serializable] to the file given in the constructor.
   Future<void> save(List<Serializable> elements) async {
+    _debugPrint('Saving to file...');
     String jsonString = "";
     for (Serializable e in elements) {
       jsonString += json.encode(e.toJson()) + delimiter;
@@ -170,6 +173,10 @@ class Serializer<E> {
 //            .where((p) => _isToday(p.datetime))
             .toList();
     }
+  }
+
+  void _debugPrint(String s) {
+    if (debug) print('Serializer<$E> debug: $s');
   }
 
 //  /// Decide whether or not a date is recent, i.e. within the day window (Default 28 days)
