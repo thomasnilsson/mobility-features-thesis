@@ -198,7 +198,6 @@ class Place {
 /// the stops, the duration of the move, and thereby also the average travel speed.
 class Move implements Serializable {
   Stop _stopFrom, _stopTo;
-  List<SingleLocationPoint> _points;
   double _distance;
 
   Move(this._stopFrom, this._stopTo, this._distance);

@@ -18,12 +18,13 @@ class FeaturesAggregate {
     this._uniqueDates = _stops.map((s) => s.arrival.midnight).toSet().toList();
   }
 
-
-
   /// Date
   DateTime get date => _date;
+
   List<DateTime> get uniqueDates => _uniqueDates;
-  List<DateTime> get historicalDates => _uniqueDates.where((d) => d.isBefore(_date.midnight)).toList();
+
+  List<DateTime> get historicalDates =>
+      _uniqueDates.where((d) => d.isBefore(_date.midnight)).toList();
 
   /// FEATURES
   List<Stop> get stops => _stops;
@@ -91,6 +92,16 @@ class FeaturesAggregate {
     int home = _findHomePlace().durationForDate(_date).inMilliseconds;
 
     return _calcHomeStay(total, home);
+  }
+
+  void printOverview() {
+    print('''
+      Features ($date)
+        - Home stay: $homeStay
+        - Home stay daily: $homeStayDaily
+        - Routine index: $routineIndexAggregate
+        - Routine index daily: $routineIndexDaily
+    ''');
   }
 
   /// Auxiliary calculations for feature extraction

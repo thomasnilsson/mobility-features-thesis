@@ -184,10 +184,10 @@ void main() async {
     printList(subset);
 
     /// Serialize the subset of 5 points
-    dataSerializer.write(subset);
+    dataSerializer.save(subset);
 
     /// De-serialize the subset from file
-    List<SingleLocationPoint> dataFromFile = await dataSerializer.read();
+    List<SingleLocationPoint> dataFromFile = await dataSerializer.load();
     printList(dataFromFile);
 
     List<Stop> stops = [
@@ -202,10 +202,10 @@ void main() async {
     /// Serialize stops
     Serializer<Stop> stopSerializer =
         Serializer(new File('$testDataDir/stops.json'));
-    stopSerializer.write(stops);
+    stopSerializer.save(stops);
 
     /// De-serialize stops
-    List<Stop> stopsFromFile = await stopSerializer.read();
+    List<Stop> stopsFromFile = await stopSerializer.load();
     print('Stops deserialized:');
     printList(stopsFromFile);
 
@@ -220,10 +220,10 @@ void main() async {
     /// Serialize moves
     Serializer<Move> moveSerializer =
         Serializer(new File('$testDataDir/moves.json'));
-    moveSerializer.write(moves);
+    moveSerializer.save(moves);
 
     /// Deserialize moves
-    List<Move> movesFromFile = await moveSerializer.read();
+    List<Move> movesFromFile = await moveSerializer.load();
     print('Moves deserialized:');
     printList(movesFromFile);
   });
@@ -236,7 +236,7 @@ void main() async {
         Serializer(new File('$testDataDir/all_points.json'));
 
     /// Serialize the dataset
-    dataSerializer.write(data);
+    dataSerializer.save(data);
   });
 
   test('De-serialize all Data points', () async {
@@ -247,15 +247,18 @@ void main() async {
         Serializer(new File('$testDataDir/all_points.json'));
 
     /// Serialize the dataset
-    List<SingleLocationPoint> dataFromFile = await dataSerializer.read();
+    List<SingleLocationPoint> dataFromFile = await dataSerializer.load();
     assert(dataFromFile.length == data.length);
   });
 
-  test('Serialize all Stops and Moves', () async {
+  test('Serialize Stops and Moves', () async {
     Serializer<Stop> stopSerializer =
         Serializer(new File('$testDataDir/all_stops.json'));
     Serializer<Move> moveSerializer =
         Serializer(new File('$testDataDir/all_moves.json'));
+
+    stopSerializer.flush();
+    moveSerializer.flush();
 
     /// Single data points
     List<SingleLocationPoint> data = await Dataset().loadDataset(datasetPath);
@@ -268,18 +271,120 @@ void main() async {
       List<Move> newMoves = preprocessor.findMoves(dataOnDate, newStops);
 
       /// Save to file  by reading the content, appending it, and then writing
-      List<Stop> stops = await stopSerializer.read();
-      List<Move> moves = await moveSerializer.read();
+      List<Stop> stops = await stopSerializer.load();
+      List<Move> moves = await moveSerializer.load();
       stops.addAll(newStops);
       moves.addAll(newMoves);
-      stopSerializer.write(stops);
-      moveSerializer.write(moves);
+
+      List<Place> places = preprocessor.findPlaces(stops);
+
+      ///  Do something with places
+
+      /// Write new stops and moves
+      stopSerializer.save(newStops);
+      moveSerializer.save(newMoves);
     }
 
-    List<Stop> stops = await stopSerializer.read();
-    List<Move> moves = await moveSerializer.read();
+    List<Stop> stops = await stopSerializer.load();
+    List<Move> moves = await moveSerializer.load();
     print("Number of stops: ${stops.length}");
     print("Number of moves: ${moves.length}");
+  });
 
+  test('Load stops and moves', () async {
+    Serializer<Stop> stopSerializer =
+        Serializer(new File('$testDataDir/all_stops.json'));
+    Serializer<Move> moveSerializer =
+        Serializer(new File('$testDataDir/all_moves.json'));
+
+    List<Stop> stops = await stopSerializer.load();
+    List<Move> moves = await moveSerializer.load();
+
+    print("Number of stops: ${stops.length}");
+    print("Number of moves: ${moves.length}");
+  });
+
+  test('Serialize empty Stops and Moves', () async {
+    Serializer<SingleLocationPoint> dataSerializer =
+        Serializer(new File('$testDataDir/empty_data.json'));
+    Serializer<Stop> stopSerializer =
+        Serializer(new File('$testDataDir/empty_stops.json'));
+    Serializer<Move> moveSerializer =
+        Serializer(new File('$testDataDir/empty_moves.json'));
+
+    List<SingleLocationPoint> points = await dataSerializer.load();
+    List<Stop> stops = await stopSerializer.load();
+    List<Move> moves = await moveSerializer.load();
+
+    print('Loaded ${points.length} points');
+    print('Loaded ${stops.length} stops');
+    print('Loaded ${moves.length} moves');
+    print("Ran test without errors!");
+  });
+
+  test('Simulate everything', () async {
+    Serializer<SingleLocationPoint> dataSerializer =
+        Serializer(new File('$testDataDir/single_location_points.json'));
+    Serializer<Stop> stopSerializer =
+        Serializer(new File('$testDataDir/stops.json'));
+    Serializer<Move> moveSerializer =
+        Serializer(new File('$testDataDir/moves.json'));
+
+    /// Reset file content
+    dataSerializer.flush();
+    stopSerializer.flush();
+    moveSerializer.flush();
+
+    /// Init data
+    List<SingleLocationPoint> data = await Dataset().loadDataset(datasetPath);
+    List<SingleLocationPoint> buffer = [];
+    int bufferSize = 100;
+
+    /// Simulate going through the dates
+    for (DateTime today in dates) {
+      List dataOnDate =
+          data.where((d) => d.datetime.midnight == today.midnight).toList();
+
+      /// Simulate data points coming in one at a time
+      for (SingleLocationPoint x in dataOnDate) {
+        buffer.add(x);
+
+        /// Fill up buffer. When full: write data to file.
+        if (buffer.length >= bufferSize) {
+          await dataSerializer.save(buffer);
+          buffer = [];
+        }
+      }
+
+      /// Time passes, and we now need the data
+      /// Remember to add the remaining buffer to the loaded data as well.
+      List<SingleLocationPoint> loadedData = await dataSerializer.load();
+      List<SingleLocationPoint> pointsAll = loadedData + buffer;
+
+      /// Pre-process today's data
+      DataPreprocessor preprocessor = DataPreprocessor(today);
+      List<Stop> stopsToday = preprocessor.findStops(pointsAll);
+      List<Move> movesToday = preprocessor.findMoves(pointsAll, stopsToday);
+
+      /// Load old stops and moves
+      List<Stop> stopsOld = await stopSerializer.load();
+      List<Move> movesOld = await moveSerializer.load();
+      List<Stop> stopsAll = stopsOld + stopsToday;
+      List<Move> movesAll = movesOld + movesToday;
+
+      /// Find all places, both historic and today
+      List<Place> placesAll = preprocessor.findPlaces(stopsAll);
+
+      /// Save today's stops and moves.
+      /// Naive approach, assumes this is done 23:59:59
+      /// and that it hasn't been done previously on this day
+      stopSerializer.save(stopsToday);
+      moveSerializer.save(movesToday);
+
+      /// Calculate features
+      FeaturesAggregate features =
+          FeaturesAggregate(today, stopsAll, placesAll, movesAll);
+      features.printOverview();
+    }
   });
 }
