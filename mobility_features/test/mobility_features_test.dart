@@ -429,5 +429,6 @@ void main() async {
 
     FeaturesAggregate features = FeaturesAggregate(today, stops, places, moves);
     features.printOverview();
+    print(features.hourMatrixDaily);
   });
 }

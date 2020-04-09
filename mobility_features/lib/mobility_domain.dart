@@ -2,7 +2,6 @@ part of mobility_features_lib;
 
 const int HOURS_IN_A_DAY = 24;
 
-
 abstract class Serializable {
   Map<String, dynamic> toJson();
 
@@ -49,8 +48,7 @@ class SingleLocationPoint implements Serializable {
 
   DateTime get datetime => _datetime;
 
-  Map<String, dynamic> toJson() =>
-      {
+  Map<String, dynamic> toJson() => {
         "location": location.toJson(),
         "datetime": json.encode(datetime.millisecondsSinceEpoch)
       };
@@ -113,8 +111,8 @@ class Stop implements Serializable {
 
   List<double> get hourSlots {
     /// Start and end should be on the same date!
-    int start = arrival.hour;
-    int end = departure.hour;
+    int startHour = arrival.hour;
+    int endHour = departure.hour;
 
     if (departure.midnight != arrival.midnight) {
       throw Exception(
@@ -123,21 +121,32 @@ class Stop implements Serializable {
 
     List<double> hours = List<double>.filled(HOURS_IN_A_DAY, 0.0);
 
-    /// Set the corresponding hour slots to 1
-    for (int i = start; i <= end; i++) {
-      hours[i] = 1.0;
+    /// If arrived and departed within same hour
+    if (startHour == endHour) {
+      hours[startHour] = (departure.minute - arrival.minute)  / 60.0;
+    }
+
+    /// Otherwise if the stop has overlap in hours
+    else {
+      /// Start
+      hours[startHour] = 1.0 - arrival.minute / 60.0;
+
+      /// In between
+      for (int hour = startHour + 1; hour < endHour; hour++) {
+        hours[hour] = 1.0;
+      }
+
+      /// Departure
+      hours[endHour] = departure.minute / 60.0;
     }
     return hours;
   }
 
-
-  Duration get duration =>
-      Duration(
-          milliseconds:
+  Duration get duration => Duration(
+      milliseconds:
           departure.millisecondsSinceEpoch - arrival.millisecondsSinceEpoch);
 
-  Map<String, dynamic> toJson() =>
-      {
+  Map<String, dynamic> toJson() => {
         "centroid": centroid.toJson(),
         "place_id": placeId,
         "arrival": arrival.millisecondsSinceEpoch,
@@ -154,8 +163,7 @@ class Stop implements Serializable {
 
   @override
   String toString() {
-    return 'Stop at place $placeId,  (${_centroid
-        .toString()}) [$arrival - $departure] ($duration) ';
+    return 'Stop at place $placeId,  (${_centroid.toString()}) [$arrival - $departure] ($duration) ';
   }
 }
 
@@ -173,11 +181,10 @@ class Place {
   Duration get duration =>
       _stops.map((s) => s.duration).reduce((a, b) => a + b);
 
-  Duration durationForDate(DateTime d) =>
-      _stops
-          .where((s) => s.arrival.midnight == d)
-          .map((s) => s.duration)
-          .fold(Duration(), (a, b) => a + b);
+  Duration durationForDate(DateTime d) => _stops
+      .where((s) => s.arrival.midnight == d)
+      .map((s) => s.duration)
+      .fold(Duration(), (a, b) => a + b);
 
   // Init accumulator to zero (empty duration),
   // otherwise reduce/fold will fail if
@@ -215,10 +222,9 @@ class Move implements Serializable {
   double get distance => _distance;
 
   /// The duration of the move in milliseconds
-  Duration get duration =>
-      Duration(
-          milliseconds: _stopTo.arrival.millisecondsSinceEpoch -
-              _stopFrom.departure.millisecondsSinceEpoch);
+  Duration get duration => Duration(
+      milliseconds: _stopTo.arrival.millisecondsSinceEpoch -
+          _stopFrom.departure.millisecondsSinceEpoch);
 
   /// The average speed when moving between the two places (m/s)
   double get meanSpeed => distance / duration.inSeconds.toDouble();
@@ -231,8 +237,7 @@ class Move implements Serializable {
 
   Stop get stopTo => _stopTo;
 
-  Map<String, dynamic> toJson() =>
-      {
+  Map<String, dynamic> toJson() => {
         "stop_from": _stopFrom.toJson(),
         "stop_to": _stopTo.toJson(),
         "distance": _distance
@@ -245,9 +250,7 @@ class Move implements Serializable {
 
   @override
   String toString() {
-    return 'Move: ${_stopFrom.centroid} --> ${_stopTo
-        .centroid}, (Place ${_stopFrom.placeId} --> ${_stopTo
-        .placeId}) (Time: $duration))';
+    return 'Move: ${_stopFrom.centroid} --> ${_stopTo.centroid}, (Place ${_stopFrom.placeId} --> ${_stopTo.placeId}) (Time: $duration))';
   }
 }
 
@@ -298,7 +301,7 @@ class HourMatrix {
   int get homePlaceId {
     List<List<double>> nightHours = _matrix.sublist(0, 6);
     List<double> nightHoursAtPlaces =
-    nightHours.map((h) => h.reduce((a, b) => a + b)).toList();
+        nightHours.map((h) => h.reduce((a, b) => a + b)).toList();
     return argmaxDouble(nightHoursAtPlaces);
   }
 
@@ -319,55 +322,23 @@ class HourMatrix {
     /// Compute average
     return error / (HOURS_IN_A_DAY * _numberOfPlaces);
   }
-}
 
-class HourMatrixOld {
-  List<Stop> _stops;
-  int _numberOfPlaces;
-  List<List<double>> _matrix;
-
-  HourMatrixOld(this._stops, this._numberOfPlaces) {
-    /// Init 2d matrix with 24 rows and cols equal to number of places
-    _matrix = new List.generate(
-        HOURS_IN_A_DAY, (_) => new List<double>.filled(_numberOfPlaces, 0.0));
-
-    for (int j = 0; j < _numberOfPlaces; j++) {
-      List<Stop> stopsAtPlace = _stops.where((s) => (s.placeId) == j).toList();
-
-      for (Stop s in stopsAtPlace) {
-        /// For each hour of the day, add the hours from the StopRow to the matrix
-        for (int i = 0; i < HOURS_IN_A_DAY; i++) {
-          _matrix[i][j] += s.hourSlots[i];
-        }
-      }
+  @override
+  String toString() {
+    String s = '\n';
+    s += 'Matrix\t\t';
+    for (int p = 0; p < _numberOfPlaces; p++) {
+      s += 'Place $p\t\t';
     }
-  }
+    s += '\n';
+    for (int hour = 0; hour < HOURS_IN_A_DAY; hour++){
+      s += 'Hour ${hour.toString().padLeft(2, '0')}\t\t';
 
-  List<List<double>> get matrix => _matrix;
-
-  /// Features
-  int get homePlaceId {
-    List<List<double>> nightHours = _matrix.sublist(0, 6);
-    List<double> nightHoursAtPlaces =
-    nightHours.map((h) => h.reduce((a, b) => a + b)).toList();
-    return argmaxDouble(nightHoursAtPlaces);
-  }
-
-  /// Calculates the error between two matrices
-  double computeError(HourMatrixOld other) {
-    /// Check that dimensions match
-    assert(other.matrix.length == HOURS_IN_A_DAY &&
-        other.matrix.first.length == _numberOfPlaces);
-
-    /// Count errors
-    double error = 0.0;
-    for (int i = 0; i < HOURS_IN_A_DAY; i++) {
-      for (int j = 0; j < _numberOfPlaces; j++) {
-        error += (this.matrix[i][j] - other.matrix[i][j]).abs();
+      for (double e in _matrix[hour]) {
+        s += '${e.toStringAsFixed(3)}\t\t';
       }
+      s += '\n';
     }
-
-    /// Compute average
-    return error / (HOURS_IN_A_DAY * _numberOfPlaces);
+    return s;
   }
 }

@@ -1,5 +1,8 @@
 part of mobility_features_lib;
 
+
+const int MILLISECONDS_IN_A_DAY = 24 * 60 * 60 * 1000;
+
 class FeaturesAggregate {
   List<Stop> _stops, _stopsDaily;
   List<Place> _places, _placesDaily;
@@ -28,10 +31,15 @@ class FeaturesAggregate {
 
   /// FEATURES
   List<Stop> get stops => _stops;
+  List<Stop> get stopsDaily => _stopsDaily;
 
   List<Place> get places => _places;
+  List<Place> get placesDaily => _placesDaily;
 
   List<Move> get moves => _moves;
+  List<Move> get movesDaily => _movesDaily;
+
+
 
   /// Number of clusters found by DBSCAN, i.e. number of places
   int get numberOfClusters => places.length;
@@ -51,11 +59,13 @@ class FeaturesAggregate {
       _calcEntropy(_placesDaily.map((p) => p.durationForDate(_date)).toList());
 
   /// Normalized Entropy, i.e. entropy relative to the number of places
-  double get normalizedEntropy => entropy / log(numberOfClusters);
+  double get normalizedEntropy =>
+      numberOfClusters > 1 ? entropy / log(numberOfClusters) : 0.0;
 
   /// Normalized Entropy for the date specified in the constructor
-  double get normalizedEntropyDaily =>
-      entropyDaily / log(numberOfClustersDaily);
+  double get normalizedEntropyDaily => numberOfClustersDaily > 1
+      ? entropyDaily / log(numberOfClustersDaily)
+      : 0.0;
 
   /// Total distance travelled in meters
   double get totalDistance =>
@@ -76,9 +86,8 @@ class FeaturesAggregate {
   /// Home Stay
   double get homeStay {
     if (places.isEmpty) return -1.0;
-    int total =
-        _places.map((p) => p.duration.inMilliseconds).fold(0, (a, b) => a + b);
 
+    int total = uniqueDates.length * MILLISECONDS_IN_A_DAY;
     int home = _findHomePlace().duration.inMilliseconds;
 
     return _calcHomeStay(total, home);
@@ -87,22 +96,31 @@ class FeaturesAggregate {
   /// Home Stay Daily
   double get homeStayDaily {
     if (places.isEmpty) return -1.0;
-    int total = _placesDaily
-        .map((p) => p.durationForDate(_date).inMilliseconds)
-        .fold(0, (a, b) => a + b);
-
+    int total = MILLISECONDS_IN_A_DAY;
     int home = _findHomePlace().durationForDate(_date).inMilliseconds;
 
     return _calcHomeStay(total, home);
   }
 
+  HourMatrix get hourMatrixDaily =>
+      HourMatrix.fromStops(_stopsDaily, numberOfClusters);
+
   void printOverview() {
     print('''
       Features ($date)
+        - Aggregate
+        - Number of places: $numberOfClusters
+        - Number of places today: $numberOfClustersDaily
         - Home stay: $homeStay
-        - Home stay daily: $homeStayDaily
+        - Home stay today: $homeStayDaily
+        - Entropy: $entropy
+        - Entropy today: $entropyDaily
+        - Normalized entropy: $normalizedEntropy
+        - Normalized entropy today: $normalizedEntropyDaily
+        - Total distance: $totalDistance
+        - Total distance today: $totalDistanceDaily
         - Routine index: $routineIndexAggregate
-        - Routine index daily: $routineIndexDaily
+        - Routine index today: $routineIndexDaily
     ''');
   }
 
@@ -164,7 +182,7 @@ class FeaturesAggregate {
     for (DateTime d in _uniqueDates) {
       List<Stop> stopsOnDate =
           stops.where((s) => s.arrival.midnight == d).toList();
-      HourMatrixOld hours = HourMatrixOld(stopsOnDate, numberOfClusters);
+      HourMatrix hours = HourMatrix.fromStops(stopsOnDate, numberOfClusters);
       candidates.add(hours.homePlaceId);
     }
 
@@ -182,9 +200,6 @@ class FeaturesAggregate {
 
   /// Home Stay calculation
   double _calcHomeStay(int timeSpentTotal, int timeSpentAtHome) {
-    // Avoid div by zero error
-    timeSpentTotal = timeSpentTotal > 0 ? timeSpentTotal : 1;
-
     return timeSpentAtHome.toDouble() / timeSpentTotal.toDouble();
   }
 }
