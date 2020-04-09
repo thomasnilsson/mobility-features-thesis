@@ -74,19 +74,19 @@ class _MainPageState extends State<MainPage> {
 
     /// TODO: Remove
     /// Load asset-stops and moves
-    List<Stop> stopsAssets = await FileUtil().loadStopsFromAssets();
-    List<Move> movesAssets = await FileUtil().loadMovesFromAssets();
+//    List<Stop> stopsOld = await FileUtil().loadStopsFromAssets();
+//    List<Move> movesOld = await FileUtil().loadMovesFromAssets();
 
     /// TODO: Remove
     /// Merge
 //    List<Stop> stops = stopsAssets + stopsOld;
 //    List<Move> moves = movesAssets + movesOld;
-    List<Stop> stops = stopsAssets;
-    List<Move> moves = movesAssets;
 
-    FeaturesAggregate _features = await relay(sendPort, points, stops, moves);
-//    FeaturesAggregate _features =
-//        await relay(sendPort, points, stopsOld, movesOld);
+    FeaturesAggregate _features =
+        await relay(sendPort, points, stopsOld, movesOld);
+    _features.printOverview();
+    for (var stop in _features.stopsDaily) print(stop);
+    print(_features.hourMatrixDaily);
     return _features;
   }
 
@@ -106,8 +106,8 @@ class _MainPageState extends State<MainPage> {
     List<Stop> stopsLoaded = msg[1];
     List<Move> movesLoaded = msg[2];
     final replyPort = msg[3];
-//    DateTime today = DateTime.now().midnight;
-    DateTime today = DateTime(2020, 02, 17);
+    DateTime today = DateTime.now().midnight;
+//    DateTime today = DateTime(2020, 04, 08);
     DataPreprocessor preprocessor = DataPreprocessor(today);
     List<Stop> stopsToday = preprocessor.findStops(points);
     List<Move> movesToday = preprocessor.findMoves(points, stopsToday);
@@ -133,10 +133,11 @@ class _MainPageState extends State<MainPage> {
             .toList();
 
     /// Get all stop, moves, and places
-//    List<Stop> stopsAll = stopsOld + stopsToday;
-//    List<Move> movesAll = movesOld + movesToday;
-    List<Stop> stopsAll = stopsOld;
-    List<Move> movesAll = movesOld;
+    List<Stop> stopsAll = stopsOld + stopsToday;
+    List<Move> movesAll = movesOld + movesToday;
+
+//    List<Stop> stopsAll = stopsOld;
+//    List<Move> movesAll = movesOld;
     print('No. stops: ${stopsAll.length}');
     print('No. moves: ${movesAll.length}');
 
@@ -145,8 +146,6 @@ class _MainPageState extends State<MainPage> {
     /// Extract features
     FeaturesAggregate features =
         FeaturesAggregate(today, stopsAll, placesAll, movesAll);
-
-    features.printOverview();
 
     /// Send back response
     replyPort.send(features);
@@ -231,7 +230,7 @@ class _MainPageState extends State<MainPage> {
       _features = f;
     });
 
-    _saveStopsAndMoves(f);
+//    _saveStopsAndMoves(f);
   }
 
   Future<void> _saveStopsAndMoves(FeaturesAggregate features) async {
