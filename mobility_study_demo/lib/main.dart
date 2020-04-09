@@ -9,7 +9,7 @@ import 'package:mobility_features/mobility_features_lib.dart';
 import 'dart:async';
 import 'dart:isolate';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:io';
@@ -25,6 +25,11 @@ void main() => runApp(MobilityStudy());
 class MobilityStudy extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    /// Set device orientation, i.e. disable landscape mode
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
+
     return new MaterialApp(
         title: 'Mobility Study',
         debugShowCheckedModeBanner: false,
@@ -43,7 +48,7 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> {
   FeaturesAggregate _features;
-
+  AppState _state = AppState.NO_FEATURES;
   Geolocator _geoLocator = Geolocator();
   List<SingleLocationPoint> _pointsBuffer = [];
   String _uuid = 'NOT_SET';
@@ -51,13 +56,13 @@ class _MainPageState extends State<MainPage> {
   Serializer<Stop> _stopSerializer;
   Serializer<Move> _moveSerializer;
   static const int BUFFER_SIZE = 100;
+  int _pointsCollected = 0, _pointsCollectedToday = 0;
 
   void initialize() async {
     _initLocation();
     _initSerializers();
 
     await _loadUUID();
-    print('Dataset loaded, length = ${_pointsBuffer.length} points');
   }
 
   /// Feature Calculation ASYNC
@@ -67,9 +72,28 @@ class _MainPageState extends State<MainPage> {
     await Isolate.spawn(calcFeaturesAsync, receivePort.sendPort);
     SendPort sendPort = await receivePort.first;
 
+    DateTime today = DateTime.now().midnight;
+
     /// Load points, stops and moves via package
+    print('Reading points');
+
+    /// Load points. If the first point is from a previous date,
+    /// filter out all previous points.
+    /// Update the points file afterwards such that old points are deleted.
     List<SingleLocationPoint> points = await _pointSerializer.load();
+    if (points.first.datetime.midnight.isBefore(today)) {
+      print('Old location data found, deleting it...');
+      points = points.where((p) => p.datetime.midnight == today).toList();
+      await _pointSerializer.flush();
+      _pointSerializer.save(points);
+    }
+
+    print('Points total: ${points.length}');
+
+    print('Reading stops');
     List<Stop> stopsOld = await _stopSerializer.load();
+
+    print('Reading moves');
     List<Move> movesOld = await _moveSerializer.load();
 
     /// TODO: Remove
@@ -107,12 +131,12 @@ class _MainPageState extends State<MainPage> {
     List<Move> movesLoaded = msg[2];
     final replyPort = msg[3];
     DateTime today = DateTime.now().midnight;
-//    DateTime today = DateTime(2020, 04, 08);
+
     DataPreprocessor preprocessor = DataPreprocessor(today);
-    List<Stop> stopsToday = preprocessor.findStops(points);
-    List<Move> movesToday = preprocessor.findMoves(points, stopsToday);
 
     DateTime fourWeeksAgo = today.subtract(Duration(days: 28));
+
+    print('Filering out old places...');
 
     /// Filter out stops and moves which were computed today,
     /// which were just loaded as well as stops older than 28 days
@@ -132,6 +156,12 @@ class _MainPageState extends State<MainPage> {
                 fourWeeksAgo.leq(m.stopFrom.arrival.midnight))
             .toList();
 
+    print('Calculating new stops...');
+    List<Stop> stopsToday = preprocessor.findStops(points, filter: false);
+
+    print('Calculating new moves...');
+    List<Move> movesToday = preprocessor.findMoves(points, stopsToday, filter: false);
+
     /// Get all stop, moves, and places
     List<Stop> stopsAll = stopsOld + stopsToday;
     List<Move> movesAll = movesOld + movesToday;
@@ -140,6 +170,8 @@ class _MainPageState extends State<MainPage> {
 //    List<Move> movesAll = movesOld;
     print('No. stops: ${stopsAll.length}');
     print('No. moves: ${movesAll.length}');
+
+    print('Calculating new places...');
 
     List<Place> placesAll = preprocessor.findPlaces(stopsAll);
 
@@ -151,8 +183,10 @@ class _MainPageState extends State<MainPage> {
     replyPort.send(features);
   }
 
-  Future<String> _uploadDataToFirebase(File f, String type) async {
-    String fireBaseFileName = '${_uuid}_${type}.json';
+  Future<String> _uploadDataToFirebase(File f, String prefix) async {
+    /// Create a folder using the UUID,
+    /// if not created, and write to a  file inside it
+    String fireBaseFileName = '${_uuid}/${prefix}_$_uuid.json';
     StorageReference firebaseStorageRef =
         FirebaseStorage.instance.ref().child(fireBaseFileName);
     StorageUploadTask uploadTask = firebaseStorageRef.putFile(f);
@@ -196,9 +230,22 @@ class _MainPageState extends State<MainPage> {
     /// This is to avoid constantly reading and writing from file each time a new
     /// point comes in.
     if (_pointsBuffer.length >= BUFFER_SIZE) {
-      _pointSerializer.save(_pointsBuffer);
-      _pointsBuffer = [];
+      _saveBuffer();
     }
+  }
+
+  void _saveBuffer() async {
+    String dateString =
+        '${DateTime.now().year}-${DateTime.now().month}-${DateTime.now().day}';
+
+    await _pointSerializer.save(_pointsBuffer);
+    File pointsFile = await FileUtil().pointsFile;
+
+    /// Date is added to the points file
+    String urlPoints =
+        await _uploadDataToFirebase(pointsFile, 'points-$dateString');
+    print(urlPoints);
+    _pointsBuffer = [];
   }
 
   @override
@@ -222,18 +269,27 @@ class _MainPageState extends State<MainPage> {
     _moveSerializer = Serializer<Move>(movesFile, debug: true);
   }
 
-  void _buttonPressed() async {
-    print('Loading features...');
+  void _updateFeatures() async {
+    setState(() {
+      _state = AppState.CALCULATING_FEATURES;
+    });
+
+    /// Write the newest data points to the file before calculation
+    await _saveBuffer();
+
+    print('Calculating features...');
     FeaturesAggregate f = await _getFeatures();
 
     setState(() {
       _features = f;
+      _state = AppState.FEATURES_READY;
     });
 
-//    _saveStopsAndMoves(f);
+    /// When features are computed, save stops and moves to Firebase
+    _saveStopsAndMovesToFirebase(f);
   }
 
-  Future<void> _saveStopsAndMoves(FeaturesAggregate features) async {
+  Future<void> _saveStopsAndMovesToFirebase(FeaturesAggregate features) async {
     /// Clean up files
     await _stopSerializer.flush();
     await _moveSerializer.flush();
@@ -242,15 +298,8 @@ class _MainPageState extends State<MainPage> {
     await _stopSerializer.save(features.stops);
     await _moveSerializer.save(features.moves);
 
-    File pointsFile = await FileUtil().pointsFile;
     File stopsFile = await FileUtil().stopsFile;
     File movesFile = await FileUtil().movesFile;
-
-    print('Checkpoint');
-
-    /// Upload data
-    String urlPoints = await _uploadDataToFirebase(pointsFile, 'points');
-    print(urlPoints);
 
     String urlStops = await _uploadDataToFirebase(stopsFile, 'stops');
     print(urlStops);
@@ -262,8 +311,6 @@ class _MainPageState extends State<MainPage> {
   Widget featuresOverview() {
     return ListView(
       children: <Widget>[
-        entry("No. days of data", "${_features.uniqueDates.length}",
-            Icons.date_range),
         entry(
             "Routine index",
             _features.routineIndexDaily < 0
@@ -290,6 +337,8 @@ class _MainPageState extends State<MainPage> {
             "Location variance",
             "${(111.133 * _features.locationVarianceDaily).toStringAsFixed(5)} km",
             Icons.crop_rotate),
+        entry("No. days tracked", "${_features.uniqueDates.length}",
+            Icons.date_range),
       ],
     );
   }
@@ -305,22 +354,6 @@ class _MainPageState extends State<MainPage> {
         ));
   }
 
-  List<Widget> getContent() => <Widget>[
-        Container(
-            margin: EdgeInsets.all(25),
-            child: Column(children: [
-              Text(
-                'Statistics for',
-                style: TextStyle(fontSize: 20),
-              ),
-              Text(
-                '${formatDate(_features.date)}',
-                style: TextStyle(fontSize: 20, color: Colors.blue),
-              ),
-            ])),
-        Expanded(child: featuresOverview())
-      ];
-
   void goToPatientPage() {
     Navigator.push(
       context,
@@ -328,11 +361,63 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
+  List<Widget> _contentNoFeatures() {
+    return [
+      Container(
+          margin: EdgeInsets.all(25),
+          child: Text(
+            'Click on the refresh button to generate features',
+            style: TextStyle(fontSize: 20),
+          ))
+    ];
+  }
+
+  List<Widget> _contentFeaturesReady() {
+    return [
+      Container(
+          margin: EdgeInsets.all(25),
+          child: Column(children: [
+            Text(
+              'Statistics for today,',
+              style: TextStyle(fontSize: 20),
+            ),
+            Text(
+              '${formatDate(_features.date)}',
+              style: TextStyle(fontSize: 20, color: Colors.blue),
+            ),
+          ])),
+      Expanded(child: featuresOverview())
+    ];
+  }
+
+  List<Widget> _contentCalculatingFeatures() {
+    return [
+      Container(
+          margin: EdgeInsets.all(25),
+          child: Column(children: [
+            Text(
+              'Calculating features...',
+              style: TextStyle(fontSize: 20),
+            ),
+            Container(
+                margin: EdgeInsets.only(top: 50),
+                child:
+                    Center(child: CircularProgressIndicator(strokeWidth: 10)))
+          ]))
+    ];
+  }
+
+  List<Widget> _showContent() {
+    if (_state == AppState.FEATURES_READY)
+      return _contentFeaturesReady();
+    else if (_state == AppState.CALCULATING_FEATURES)
+      return _contentCalculatingFeatures();
+    else
+      return _contentNoFeatures();
+  }
+
   @override
   Widget build(BuildContext context) {
-    List<Widget> noContent = [
-      Text('No features yet, click the refresh button to generate features')
-    ];
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
@@ -346,11 +431,9 @@ class _MainPageState extends State<MainPage> {
           )
         ],
       ),
-      body: Column(
-        children: _features == null ? noContent : getContent(),
-      ),
+      body: Column(children: _showContent()),
       floatingActionButton: FloatingActionButton(
-        onPressed: _buttonPressed,
+        onPressed: _updateFeatures,
         tooltip: 'Calculate features',
         child: Icon(Icons.refresh),
       ), // This trailing comma makes auto-formatting nicer for build methods.
@@ -372,6 +455,10 @@ class InfoPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    print('*'*50);
+    print('Check');
+    print('*'*50);
+
     return Scaffold(
       appBar: AppBar(
         title: Text("Info Page"),

@@ -2,6 +2,10 @@ part of mobility;
 
 String formatDate(DateTime date) => new DateFormat("MMMM dd yyyy").format(date);
 
+enum AppState {
+  NO_FEATURES, CALCULATING_FEATURES, FEATURES_READY
+}
+
 class FileUtil {
   Future<File> _file(String type) async {
     String path = (await getApplicationDocumentsDirectory()).path;
