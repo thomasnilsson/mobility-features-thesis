@@ -21,13 +21,20 @@ class DataPreprocessor {
   DateTime get date => _date;
 
   /// Filter out data not on the specified date
-  List<SingleLocationPoint> _filterByDate(List<SingleLocationPoint> data) =>
-      data.where((x) => x.datetime.midnight == _date.midnight).toList();
+  List<SingleLocationPoint> pointsToday(List<SingleLocationPoint> data) {
+    print('Filtering points by date...');
+    List<SingleLocationPoint> filtered =
+        data.where((x) => x.datetime.midnight == _date.midnight).toList();
+    print('Finished filtering!');
+    return filtered;
+  }
 
   /// Find the stops in a sequence of gps data points
-  List<Stop> findStops(List<SingleLocationPoint> rawData) {
+  List<Stop> findStops(List<SingleLocationPoint> data, {bool filter: true}) {
     /// Filter out data not on the specified date
-    List<SingleLocationPoint> data = _filterByDate(rawData);
+    if (filter) {
+      data = pointsToday(data);
+    }
 
     List<Stop> stops = [];
     int n = data.length;
@@ -100,9 +107,12 @@ class DataPreprocessor {
     return places;
   }
 
-  List<Move> findMoves(List<SingleLocationPoint> rawData, List<Stop> stops) {
+  List<Move> findMoves(List<SingleLocationPoint> data, List<Stop> stops,
+      {bool filter: true}) {
     /// Filter out data not on the specified date
-    List<SingleLocationPoint> data = _filterByDate(rawData);
+    if (filter) {
+      data = pointsToday(data);
+    }
     List<Move> moves = [];
 
     /// Create moves from stops
