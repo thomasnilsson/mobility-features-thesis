@@ -31,7 +31,8 @@ class AppProcessor {
 
   Future _initLocation() async {
     /// Set a minimum dist of such that we dont track every little move
-    LocationOptions options = LocationOptions(distanceFilter: 5);
+    /// This is necessary if user is very stationary however, being in bed wont count!
+    LocationOptions options = LocationOptions(distanceFilter: 0);
     await _geoLocator.isLocationServiceEnabled().then((response) {
       if (response) {
         _geoLocator.getPositionStream(options).listen(_onData);
