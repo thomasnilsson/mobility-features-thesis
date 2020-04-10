@@ -4,6 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'dart:convert';
 import 'dart:io';
 
+Duration takeTime(DateTime start, DateTime end){
+  int ms = end.millisecondsSinceEpoch - start.millisecondsSinceEpoch;
+  return Duration(milliseconds: ms);
+}
+
 void main() async {
   String datasetPath = 'lib/data/example-multi.json';
   String testDataDir = 'test/data';
@@ -323,12 +328,14 @@ void main() async {
   });
 
   test('Simulate everything', () async {
+    DateTime startTime, endTime;
+
     Serializer<SingleLocationPoint> dataSerializer =
-        Serializer(new File('$testDataDir/all_points.json'));
+        Serializer(new File('$testDataDir/points.json'));
     Serializer<Stop> stopSerializer =
-        Serializer(new File('$testDataDir/all_stops.json'));
+        Serializer(new File('$testDataDir/stops.json'));
     Serializer<Move> moveSerializer =
-        Serializer(new File('$testDataDir/all_moves.json'));
+        Serializer(new File('$testDataDir/moves.json'));
 
     /// Reset file content
     dataSerializer.flush();
@@ -356,26 +363,49 @@ void main() async {
         }
       }
 
-      /// Time passes, and we now need the data
-      /// Remember to add the remaining buffer to the loaded data as well.
-      List<SingleLocationPoint> loadedData = await dataSerializer.load();
-      List<SingleLocationPoint> pointsAll = loadedData + buffer;
-
       /// Pre-process today's data
       DataPreprocessor preprocessor = DataPreprocessor(today);
+
+      /// Time passes, and we now need the data
+      startTime = DateTime.now();
+      List<SingleLocationPoint> loadedData = await dataSerializer.load();
+      endTime = DateTime.now();
+      print('Duration of loading points: ${takeTime(startTime, endTime)}');
+
+      /// Filter out data points NOT from today which may be stored in the file,
+      /// from a previous day
+      startTime = DateTime.now();
+      List<SingleLocationPoint> loadedDataFromToday = preprocessor.pointsToday(loadedData);
+      endTime = DateTime.now();
+      print('Duration of filtering points: ${takeTime(startTime, endTime)}');
+
+      /// Remember to add the remaining buffer to the loaded data as well.
+      List<SingleLocationPoint> pointsAll = loadedDataFromToday + buffer;
+
+      /// Find new stops and moves
+      startTime = DateTime.now();
+      print('No. points: ${pointsAll.length}');
       List<Stop> stopsToday = preprocessor.findStops(pointsAll);
+      endTime = DateTime.now();
+      print('Duration of finding stops: ${takeTime(startTime, endTime)}');
+
+      startTime = DateTime.now();
       List<Move> movesToday = preprocessor.findMoves(pointsAll, stopsToday);
+      endTime = DateTime.now();
+      print('Duration of finding moves: ${takeTime(startTime, endTime)}');
 
       /// Load old stops and moves
       List<Stop> stopsLoaded = await stopSerializer.load();
       List<Move> movesLoaded = await moveSerializer.load();
 
+      /// Set a breakpoint for which older stops/moves will be disregarded
+      /// and thrown away
       DateTime fourWeeksAgo = today.subtract(Duration(days: 28));
 
       /// Filter out stops and moves which were computed today,
       /// which were just loaded as well as stops older than 28 days
       List<Stop> stopsOld = stopsLoaded
-          .where((s) => s.arrival.midnight != today.midnight&&
+          .where((s) => s.arrival.midnight != today.midnight &&
           fourWeeksAgo.leq(s.arrival.midnight))
           .toList();
 
@@ -404,9 +434,16 @@ void main() async {
       moveSerializer.save(movesAll);
 
       /// Calculate features
+      startTime = DateTime.now();
       FeaturesAggregate features =
           FeaturesAggregate(today, stopsAll, placesAll, movesAll);
+      endTime = DateTime.now();
+      print('Duration of creating features object: ${takeTime(startTime, endTime)}');
+
+      startTime = DateTime.now();
       features.printOverview();
+      endTime = DateTime.now();
+      print('Duration of generating features: ${takeTime(startTime, endTime)}');
     }
   });
 
