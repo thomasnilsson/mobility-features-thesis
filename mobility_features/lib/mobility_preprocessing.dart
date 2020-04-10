@@ -4,7 +4,7 @@ part of mobility_features_lib;
 /// Finds Stops, Places and Moves for a day of GPS data
 class DataPreprocessor {
   /// Parameters for algorithms
-  double stopRadius, placeRadius, moveRadius = 50;
+  double stopRadius, placeRadius, moveDist = 50;
   Duration stopDuration, moveDuration;
 
   /// Data fields
@@ -13,8 +13,8 @@ class DataPreprocessor {
   DataPreprocessor(this._date,
       {this.stopRadius = 25,
       this.placeRadius = 25,
-      this.moveRadius = 50,
-      this.stopDuration = const Duration(minutes: 15),
+      this.moveDist = 50,
+      this.stopDuration = const Duration(minutes: 2),
       this.moveDuration = const Duration(minutes: 3)});
 
   /// Getters
@@ -115,6 +115,15 @@ class DataPreprocessor {
     }
     List<Move> moves = [];
 
+    List<SingleLocationPoint> pointsBeforeFirstPlace =
+        data.where((d) => d.datetime.leq(stops.first.arrival)).toList();
+
+    Stop firstStop = Stop.fromPoints([data.first]);
+
+    Move firstMove = Move.fromPoints(firstStop, stops.first, pointsBeforeFirstPlace);
+
+    moves.add(firstMove);
+
     /// Create moves from stops
     for (int i = 0; i < stops.length - 1; i++) {
       Stop cur = stops[i];
@@ -123,7 +132,7 @@ class DataPreprocessor {
       /// Extract all points (including the 'loose' points) between the two stops
       List<SingleLocationPoint> pointsInBetween = data
           .where((d) =>
-              cur.departure.leq(d._datetime) && d._datetime.leq(next.arrival))
+              cur.departure.leq(d.datetime) && d.datetime.leq(next.arrival))
           .toList();
 
       moves.add(Move.fromPoints(cur, next, pointsInBetween));

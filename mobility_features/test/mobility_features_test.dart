@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'dart:convert';
 import 'dart:io';
 
-Duration takeTime(DateTime start, DateTime end){
+Duration takeTime(DateTime start, DateTime end) {
   int ms = end.millisecondsSinceEpoch - start.millisecondsSinceEpoch;
   return Duration(milliseconds: ms);
 }
@@ -375,7 +375,8 @@ void main() async {
       /// Filter out data points NOT from today which may be stored in the file,
       /// from a previous day
       startTime = DateTime.now();
-      List<SingleLocationPoint> loadedDataFromToday = preprocessor.pointsToday(loadedData);
+      List<SingleLocationPoint> loadedDataFromToday =
+          preprocessor.pointsToday(loadedData);
       endTime = DateTime.now();
       print('Duration of filtering points: ${takeTime(startTime, endTime)}');
 
@@ -405,8 +406,9 @@ void main() async {
       /// Filter out stops and moves which were computed today,
       /// which were just loaded as well as stops older than 28 days
       List<Stop> stopsOld = stopsLoaded
-          .where((s) => s.arrival.midnight != today.midnight &&
-          fourWeeksAgo.leq(s.arrival.midnight))
+          .where((s) =>
+              s.arrival.midnight != today.midnight &&
+              fourWeeksAgo.leq(s.arrival.midnight))
           .toList();
 
       List<Move> movesOld = movesLoaded
@@ -438,7 +440,8 @@ void main() async {
       FeaturesAggregate features =
           FeaturesAggregate(today, stopsAll, placesAll, movesAll);
       endTime = DateTime.now();
-      print('Duration of creating features object: ${takeTime(startTime, endTime)}');
+      print(
+          'Duration of creating features object: ${takeTime(startTime, endTime)}');
 
       startTime = DateTime.now();
       features.printOverview();
@@ -449,9 +452,9 @@ void main() async {
 
   test('Test single after the fact', () async {
     Serializer<Stop> stopSerializer =
-    Serializer(new File('$testDataDir/all_stops.json'));
+        Serializer(new File('$testDataDir/all_stops.json'));
     Serializer<Move> moveSerializer =
-    Serializer(new File('$testDataDir/all_moves.json'));
+        Serializer(new File('$testDataDir/all_moves.json'));
 
     List<Stop> stops = await stopSerializer.load();
     List<Move> moves = await moveSerializer.load();
@@ -467,5 +470,23 @@ void main() async {
     FeaturesAggregate features = FeaturesAggregate(today, stops, places, moves);
     features.printOverview();
     print(features.hourMatrixDaily);
+  });
+
+  test('Simple serialization test', () async {
+    Serializer<SingleLocationPoint> serializer =
+        Serializer(new File('$testDataDir/test.json'));
+
+    SingleLocationPoint p1 =
+        SingleLocationPoint(Location(12.345, 98.765), DateTime(2020, 02, 16));
+
+    await serializer.flush();
+    await serializer.save([p1, p1, p1]);
+    await serializer.flush();
+    await serializer.save([p1, p1, p1]);
+    await serializer.flush();
+    await serializer.save([p1, p1, p1]);
+
+    List loaded = await serializer.load();
+    print(loaded.length);
   });
 }
