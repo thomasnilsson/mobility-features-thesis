@@ -1,4 +1,4 @@
-part of mobility;
+part of app;
 
 String formatDate(DateTime date) => new DateFormat("MMMM dd yyyy").format(date);
 
