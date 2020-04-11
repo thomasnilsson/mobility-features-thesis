@@ -13,10 +13,7 @@ class FeaturesAggregate {
     this._stopsDaily =
         _stops.where((d) => d.arrival.midnight == _date).toList();
     this._placesDaily = _places
-        .where((p) =>
-    p
-        .durationForDate(_date)
-        .inMilliseconds > 0)
+        .where((p) => p.durationForDate(_date).inMilliseconds > 0)
         .toList();
     this._movesDaily =
         _moves.where((d) => d.stopFrom.arrival.midnight == _date).toList();
@@ -66,10 +63,9 @@ class FeaturesAggregate {
       numberOfClusters > 1 ? entropy / log(numberOfClusters) : 0.0;
 
   /// Normalized Entropy for the date specified in the constructor
-  double get normalizedEntropyDaily =>
-      numberOfClustersDaily > 1
-          ? entropyDaily / log(numberOfClustersDaily)
-          : 0.0;
+  double get normalizedEntropyDaily => numberOfClustersDaily > 1
+      ? entropyDaily / log(numberOfClustersDaily)
+      : 0.0;
 
   /// Total distance travelled in meters
   double get totalDistance =>
@@ -81,45 +77,43 @@ class FeaturesAggregate {
 
   /// Routine index (daily)
   double get routineIndexDaily =>
-      _calcRoutineIndex([DateTime
-          .now()
-          .midnight
-      ], historicalDates);
+      _calcRoutineIndex([DateTime.now().midnight], historicalDates);
 
   /// Routine index (aggregate)
   double get routineIndexAggregate =>
       _calcRoutineIndex(_uniqueDates, historicalDates);
 
+  Place _placeLookUp(int id) {
+    return _places.where((p) => p.id == id).first;
+  }
+
   /// Home Stay
   double get homeStay {
-    if (places.isEmpty) return -1.0;
-    int total = 0;
-    /// See explanation in homeStayDaily.
-    for (DateTime d in uniqueDates) {
-      List<Stop> stopsOnDate = stops.where((s) => s.arrival.midnight == d)
-          .toList();
-      int timeTracked = stopsOnDate.isEmpty ? 0 : stopsOnDate.last.departure
-          .millisecondsSinceEpoch -
-          stopsOnDate.first.arrival.millisecondsSinceEpoch;
-      total += timeTracked;
-    }
+//    int total =
+//        _places.map((p) => p.duration.inMilliseconds).fold(0, (a, b) => a + b);
 
-    int home = _findHomePlace().duration.inMilliseconds;
+    int total = uniqueDates.length * MILLISECONDS_IN_A_DAY;
+    int homeId = _findHomePlaceId();
+    if (homeId == -1) return -1.0;
+    Place homePlace = _placeLookUp(homeId);
+    int home = homePlace.duration.inMilliseconds;
+    print('Home stay, home: $home');
 
     return _calcHomeStay(total, home);
   }
 
   /// Home Stay Daily
   double get homeStayDaily {
-    if (places.isEmpty) return -1.0;
-    /// Get difference between first and last stop, i.e.
-    /// the time we have been tracking today.
-    /// Alternatively, just use no. millisecs in a day
-    int total = _stopsDaily.last.departure.millisecondsSinceEpoch -
-        _stopsDaily.first.arrival.millisecondsSinceEpoch;
-    int home = _findHomePlace()
-        .durationForDate(_date)
-        .inMilliseconds;
+//    int total = _placesDaily
+//        .map((p) => p.durationForDate(_date).inMilliseconds)
+//        .fold(0, (a, b) => a + b);
+    int total = MILLISECONDS_IN_A_DAY;
+    int homeId = _findHomePlaceId();
+    if (homeId == -1) return -1.0;
+    Place homePlace = _placeLookUp(homeId);
+
+    int home = homePlace.durationForDate(_date).inMilliseconds;
+    print('Home stay daily, home: $home');
 
     return _calcHomeStay(total, home);
   }
@@ -153,11 +147,9 @@ class FeaturesAggregate {
     if (stopsList.length < 2) {
       return 0.0;
     }
-    double latStd = Stats
-        .fromData(stopsList.map((s) => (s.centroid.latitude)))
+    double latStd = Stats.fromData(stopsList.map((s) => (s.centroid.latitude)))
         .standardDeviation;
-    double lonStd = Stats
-        .fromData(stopsList.map((s) => (s.centroid.longitude)))
+    double lonStd = Stats.fromData(stopsList.map((s) => (s.centroid.longitude)))
         .standardDeviation;
     return log(latStd * latStd + lonStd * lonStd + 1);
   }
@@ -169,8 +161,7 @@ class FeaturesAggregate {
 
     /// Compute average matrix over historical dates
     List<HourMatrix> matrices = historical
-        .map((d) =>
-        HourMatrix.fromStops(
+        .map((d) => HourMatrix.fromStops(
             _stops.where((s) => s.arrival.midnight == d.midnight).toList(),
             numberOfClusters))
         .toList();
@@ -195,38 +186,39 @@ class FeaturesAggregate {
 
     List<double> distribution = durations
         .map((d) =>
-    (d.inMilliseconds.toDouble() / sum.inMilliseconds.toDouble()))
+            (d.inMilliseconds.toDouble() / sum.inMilliseconds.toDouble()))
         .toList();
     return -distribution.map((p) => p * log(p)).reduce((a, b) => (a + b));
   }
 
   /// Find the place ID of the HOME place
-  Place _findHomePlace() {
+  int _findHomePlaceId() {
     List<int> candidates = [];
 
     // Find the most popular place between 00:00 and 06:00 for each day
     for (DateTime d in _uniqueDates) {
       List<Stop> stopsOnDate =
-      stops.where((s) => s.arrival.midnight == d).toList();
+          stops.where((s) => s.arrival.midnight == d).toList();
       HourMatrix hours = HourMatrix.fromStops(stopsOnDate, numberOfClusters);
-      candidates.add(hours.homePlaceId);
+      int id = hours.homePlaceId;
+      if (id == -1) {
+        print('No time spent at night for this date.');
+      } else {
+        candidates.add(id);
+      }
     }
+
+    if (candidates.isEmpty) return -1;
 
     /// Reduce to unique candidates
     List<int> unique = candidates.toSet().toList();
 
     /// Count the frequency of each candidate
     List<int> counts =
-    unique.map((x) =>
-    candidates
-        .where((y) => y == x)
-        .length).toList();
+        unique.map((x) => candidates.where((y) => y == x).length).toList();
 
     /// Return the candidate with the highest frequency
-    int homeId = unique[argmaxInt(counts)];
-    return _places
-        .where((p) => p.id == homeId)
-        .first;
+    return unique[argmaxInt(counts)];
   }
 
   /// Home Stay calculation

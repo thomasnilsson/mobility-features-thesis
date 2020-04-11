@@ -12,9 +12,9 @@ class DataPreprocessor {
 
   DataPreprocessor(this._date,
       {this.stopRadius = 25,
-      this.placeRadius = 25,
+      this.placeRadius = 50,
       this.moveDist = 50,
-      this.stopDuration = const Duration(minutes: 2),
+      this.stopDuration = const Duration(minutes: 3),
       this.moveDuration = const Duration(minutes: 3)});
 
   /// Getters

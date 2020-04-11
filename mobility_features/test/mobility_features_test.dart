@@ -450,26 +450,41 @@ void main() async {
     }
   });
 
-  test('Test single after the fact', () async {
+  test('Test a single date from Bornholm', () async {
+    Serializer<SingleLocationPoint> pointSerializer =
+        Serializer(new File('$testDataDir/points-april.json'));
     Serializer<Stop> stopSerializer =
-        Serializer(new File('$testDataDir/all_stops.json'));
+        Serializer(new File('$testDataDir/stops-april.json'));
     Serializer<Move> moveSerializer =
-        Serializer(new File('$testDataDir/all_moves.json'));
+        Serializer(new File('$testDataDir/moves-april.json'));
 
-    List<Stop> stops = await stopSerializer.load();
-    List<Move> moves = await moveSerializer.load();
 
-    print('No. stops: ${stops.length}');
-    print('No. moves: ${moves.length}');
+    List<DateTime> aprilDates = [
+      DateTime(2020, 04, 10),
+      DateTime(2020, 04, 11),
+    ];
 
-    DateTime today = DateTime(2020, 02, 17);
+    List<Stop> stops = [];
+    List<Move> moves = [];
 
-    DataPreprocessor preprocessor = DataPreprocessor(today);
-    List<Place> places = preprocessor.findPlaces(stops);
+    List<SingleLocationPoint> points = await pointSerializer.load();
+    List<Place> places;
+    for (DateTime today in aprilDates) {
+      DataPreprocessor preprocessor = DataPreprocessor(today);
+      List<SingleLocationPoint> pointsToday = preprocessor.pointsToday(points);
+      stops.addAll(preprocessor.findStops(pointsToday, filter: false));
+      moves.addAll(preprocessor.findMoves(pointsToday, stops, filter: false));
+      places = preprocessor.findPlaces(stops);
 
-    FeaturesAggregate features = FeaturesAggregate(today, stops, places, moves);
-    features.printOverview();
-    print(features.hourMatrixDaily);
+      FeaturesAggregate features = FeaturesAggregate(today, stops, places, moves);
+      features.printOverview();
+      print(features.hourMatrixDaily);
+    }
+
+    printList(stops);
+    printList(moves);
+    printList(places);
+
   });
 
   test('Simple serialization test', () async {
