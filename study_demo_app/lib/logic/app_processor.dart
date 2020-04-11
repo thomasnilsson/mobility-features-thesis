@@ -60,7 +60,9 @@ class AppProcessor {
     DateTime today = DateTime.now().midnight;
     print('Loading local data points...');
     List<SingleLocationPoint> points = await _pointSerializer.load();
-    if (points.first.datetime.midnight.isBefore(today)) {
+    if (points.isEmpty) {
+      return points;
+    } else if (points.first.datetime.midnight.isBefore(today)) {
       print('Old location data found, deleting it...');
       points = points.where((p) => p.datetime.midnight == today).toList();
       await _pointSerializer.flush();
@@ -207,11 +209,13 @@ class AppProcessor {
             .toList();
 
     print('Calculating new stops...');
-    List<Stop> stopsToday = preprocessor.findStops(points, filter: false);
+    List<Stop> stopsToday =
+        points.isEmpty ? [] : preprocessor.findStops(points, filter: false);
 
     print('Calculating new moves...');
-    List<Move> movesToday =
-        preprocessor.findMoves(points, stopsToday, filter: false);
+    List<Move> movesToday = points.isEmpty
+        ? []
+        : preprocessor.findMoves(points, stopsToday, filter: false);
 
     /// Get all stop, moves, and places
     List<Stop> stopsAll = stopsOld + stopsToday;
