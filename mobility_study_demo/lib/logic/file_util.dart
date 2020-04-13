@@ -1,10 +1,8 @@
-part of mobility;
+part of app;
 
 String formatDate(DateTime date) => new DateFormat("MMMM dd yyyy").format(date);
 
-enum AppState {
-  NO_FEATURES, CALCULATING_FEATURES, FEATURES_READY
-}
+enum AppState { NO_FEATURES, CALCULATING_FEATURES, FEATURES_READY }
 
 class FileUtil {
   Future<File> _file(String type) async {
