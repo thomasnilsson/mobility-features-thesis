@@ -33,6 +33,10 @@ class MobilityStudy extends StatelessWidget {
 
     return new MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: MainPage(title: 'Mobility DEMO'));
+        home: MainPage(title: 'Mobility Study'),
+      theme: ThemeData(
+      primaryColor: Colors.green,
+      accentColor: Colors.green,
+    ));
   }
 }
