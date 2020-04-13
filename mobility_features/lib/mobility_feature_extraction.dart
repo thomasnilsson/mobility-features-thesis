@@ -104,10 +104,10 @@ class FeaturesAggregate {
 
   /// Home Stay Daily
   double get homeStayDaily {
-//    int total = _placesDaily
-//        .map((p) => p.durationForDate(_date).inMilliseconds)
-//        .fold(0, (a, b) => a + b);
-    int total = MILLISECONDS_IN_A_DAY;
+//    int total = MILLISECONDS_IN_A_DAY;
+    /// Total time elapsed today since midnight
+    int total = DateTime.now().millisecondsSinceEpoch -
+        DateTime.now().midnight.millisecondsSinceEpoch;
     int homeId = _findHomePlaceId();
     if (homeId == -1) return -1.0;
     Place homePlace = _placeLookUp(homeId);
