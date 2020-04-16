@@ -93,7 +93,7 @@ class FeaturesAggregate {
 //        _places.map((p) => p.duration.inMilliseconds).fold(0, (a, b) => a + b);
 
     int total = uniqueDates.length * MILLISECONDS_IN_A_DAY;
-    int homeId = _findHomePlaceId();
+    int homeId = _homePlaceIdForPeriod();
     if (homeId == -1) return -1.0;
     Place homePlace = _placeLookUp(homeId);
     int home = homePlace.duration.inMilliseconds;
@@ -104,13 +104,14 @@ class FeaturesAggregate {
 
   /// Home Stay Daily
   double get homeStayDaily {
-//    int total = MILLISECONDS_IN_A_DAY;
     /// Total time elapsed today since midnight
     int total = DateTime.now().millisecondsSinceEpoch -
         DateTime.now().midnight.millisecondsSinceEpoch;
-    int homeId = _findHomePlaceId();
-    if (homeId == -1) return -1.0;
-    Place homePlace = _placeLookUp(homeId);
+
+    /// Find todays  home id
+    HourMatrix hm = HourMatrix.fromStops(_stopsDaily, numberOfClusters);
+    if (hm.homePlaceId == -1) return -1.0;
+    Place homePlace = _placeLookUp(hm.homePlaceId);
 
     int home = homePlace.durationForDate(_date).inMilliseconds;
     print('Home stay daily, home: $home');
@@ -191,8 +192,8 @@ class FeaturesAggregate {
     return -distribution.map((p) => p * log(p)).reduce((a, b) => (a + b));
   }
 
-  /// Find the place ID of the HOME place
-  int _findHomePlaceId() {
+  /// Find the place ID of the HOME place for a longer period
+  int _homePlaceIdForPeriod() {
     List<int> candidates = [];
 
     // Find the most popular place between 00:00 and 06:00 for each day
