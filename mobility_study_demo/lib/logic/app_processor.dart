@@ -11,7 +11,6 @@ class AppProcessor {
   List<SingleLocationPoint> _pointsBuffer = [];
   static const int BUFFER_SIZE = 100;
   int pointsCollectedToday = 0;
-  Isolate isolate;
 
   Future initialize() async {
     await _loadUUID();
@@ -101,33 +100,6 @@ class AppProcessor {
     return downSampled;
   }
 
-  void start() async {
-    ReceivePort receivePort =
-        ReceivePort(); //port for this main isolate to receive messages.
-    isolate = await Isolate.spawn(runTimer, receivePort.sendPort);
-    receivePort.listen((data) {
-      stdout.write('RECEIVE: ' + data + ', ');
-    });
-  }
-
-  void runTimer(SendPort sendPort) {
-    int counter = 0;
-    Timer.periodic(new Duration(seconds: 1), (Timer t) {
-      counter++;
-      String msg = 'notification ' + counter.toString();
-      stdout.write('SEND: ' + msg + ' - ');
-      sendPort.send(msg);
-    });
-  }
-
-  void stop() {
-    if (isolate != null) {
-      stdout.writeln('killing isolate');
-      isolate.kill(priority: Isolate.immediate);
-      isolate = null;
-    }
-  }
-
   Future<String> _uploadPoints() async {
     /// Save to firebase. Date is added to the points file name on firebase
     File pointsFile = await FileUtil().pointsFile;
@@ -213,7 +185,7 @@ class AppProcessor {
         points.isEmpty ? [] : preprocessor.findStops(points, filter: false);
 
     print('Calculating new moves...');
-    List<Move> movesToday = points.isEmpty
+    List<Move> movesToday = stopsToday.isEmpty
         ? []
         : preprocessor.findMoves(points, stopsToday, filter: false);
 

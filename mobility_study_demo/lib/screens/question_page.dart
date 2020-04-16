@@ -5,10 +5,45 @@ class QuestionPage extends StatelessWidget {
 
   QuestionPage(this.uuid);
 
-  Widget textBox(String t, [TextStyle style]) {
-    return Container(
-      padding: EdgeInsets.only(top: 15),
-      child: Text(t, style: style),
+  final _formKey = GlobalKey<FormState>();
+
+  Widget getForm() {
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text('How many unique places did you visit today?'),
+          TextFormField(
+            decoration: const InputDecoration(
+              hintText: 'Enter your email',
+            ),
+            keyboardType: TextInputType.number,
+            inputFormatters: <TextInputFormatter>[
+              WhitelistingTextInputFormatter.digitsOnly
+            ], // Only numbers can be entered
+            validator: (value) {
+              if (value.isEmpty) {
+                return 'Please enter some text';
+              }
+              return null;
+            },
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16.0),
+            child: RaisedButton(
+              onPressed: () {
+                // Validate will return true if the form is valid, or false if
+                // the form is invalid.
+                if (_formKey.currentState.validate()) {
+                  // Process data.
+                }
+              },
+              child: Text('Submit'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -18,27 +53,14 @@ class QuestionPage extends StatelessWidget {
     print('Check');
     print('*' * 50);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text("Info Page"),
+    return new Scaffold(
+      appBar: new AppBar(
+        title: new Text('Question Page'),
+        actions: <Widget>[
+          new IconButton(icon: const Icon(Icons.save), onPressed: () {})
+        ],
       ),
-      body: Center(
-          child: Container(
-            margin: EdgeInsets.all(10),
-            child: Column(
-              children: [
-                textBox('This app is a part of a Master\'s Thesis study.'),
-                textBox(
-                    'Your location data will be collected anonymously during 2-4 weeks, then analyzed and lastly deleted permanently.'),
-                textBox(
-                    'If you have any questions regarding the study, shoot me an email at tnni@dtu.dk.'),
-                textBox('Thank you for your contribution!'),
-                textBox("Your participant ID is:",
-                    TextStyle(fontSize: 25, color: Colors.blue)),
-                textBox(uuid, TextStyle(fontSize: 14, color: Colors.black38)),
-              ],
-            ),
-          )),
+      body: getForm()
     );
   }
 }

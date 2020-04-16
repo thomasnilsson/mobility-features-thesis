@@ -156,6 +156,14 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
+
+  void goToQuestionPage() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => QuestionPage(processor.uuid)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -166,6 +174,13 @@ class _MainPageState extends State<MainPage> {
             onPressed: goToPatientPage,
             icon: Icon(
               Icons.info,
+              color: Colors.white,
+            ),
+          ),
+          IconButton(
+            onPressed: goToQuestionPage,
+            icon: Icon(
+              Icons.question_answer,
               color: Colors.white,
             ),
           )
