@@ -11,10 +11,21 @@ class AppProcessor {
   List<SingleLocationPoint> _pointsBuffer = [];
   static const int BUFFER_SIZE = 100;
   int pointsCollectedToday = 0;
+  bool streamingLocation = false;
+  StreamSubscription<Position> _subscription;
 
   Future initialize() async {
     await _loadUUID();
     await _initSerializers();
+    await _initLocation();
+  }
+
+  Future restart() async {
+    print('Restarting...');
+    if (_subscription != null) {
+      _subscription.cancel();
+    }
+
     await _initLocation();
   }
 
@@ -34,7 +45,9 @@ class AppProcessor {
     LocationOptions options = LocationOptions(distanceFilter: 0);
     await _geoLocator.isLocationServiceEnabled().then((response) {
       if (response) {
-        _geoLocator.getPositionStream(options).listen(_onData);
+        streamingLocation = true;
+        _subscription =
+            _geoLocator.getPositionStream(options).listen(_onData);
       } else {
         print('Location service not enabled');
       }
@@ -81,32 +94,12 @@ class AppProcessor {
     /// This is to avoid constantly reading and writing from file each time a new
     /// point comes in.
     if (_pointsBuffer.length >= BUFFER_SIZE) {
-//      /// Downsample to save space and make algorithms easier to run
-//      List<SingleLocationPoint> downSampled = _downSample(_pointsBuffer);
       /// Save buffer locally, empty it, and then upload the points file to firebase
       await _pointSerializer.save(_pointsBuffer);
       _pointsBuffer = [];
-      String urlPoints = await _uploadPoints();
+      String urlPoints = await FileUtil().uploadPoints(uuid);
       print(urlPoints);
     }
-  }
-
-  List<SingleLocationPoint> _downSample(List<SingleLocationPoint> data,
-      {int factor = 10}) {
-    List<SingleLocationPoint> downSampled = [];
-    for (int i = 0; i < data.length; i = i + factor) {
-      downSampled.add(data[i]);
-    }
-    return downSampled;
-  }
-
-  Future<String> _uploadPoints() async {
-    /// Save to firebase. Date is added to the points file name on firebase
-    File pointsFile = await FileUtil().pointsFile;
-    String dateString =
-        '${DateTime.now().year}-${DateTime.now().month}-${DateTime.now().day}';
-    String urlPoints = await upload(pointsFile, 'points-$dateString');
-    return urlPoints;
   }
 
   Future<FeaturesAggregate> computeFeaturesAsync() async {
@@ -293,28 +286,13 @@ class AppProcessor {
     await _stopSerializer.save(stops);
     await _moveSerializer.save(moves);
 
-    File stopsFile = await util.stopsFile;
-    File movesFile = await util.movesFile;
-
-    String urlPoints = await _uploadPoints();
+    String urlPoints = await FileUtil().uploadPoints(uuid);
     print(urlPoints);
 
-    String urlStops = await upload(stopsFile, 'stops');
+    String urlStops = await FileUtil().uploadStops(uuid);
     print(urlStops);
 
-    String urlMoves = await upload(movesFile, 'moves');
+    String urlMoves = await FileUtil().uploadMoves(uuid);
     print(urlMoves);
-  }
-
-  Future<String> upload(File f, String prefix) async {
-    /// Create a folder using the UUID,
-    /// if not created, and write to a  file inside it
-    String fireBaseFileName = '${uuid}/${prefix}_$uuid.json';
-    StorageReference firebaseStorageRef =
-        FirebaseStorage.instance.ref().child(fireBaseFileName);
-    StorageUploadTask uploadTask = firebaseStorageRef.putFile(f);
-    StorageTaskSnapshot downloadUrl = await uploadTask.onComplete;
-    String url = await downloadUrl.ref.getDownloadURL();
-    return url;
   }
 }

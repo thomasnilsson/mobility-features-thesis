@@ -16,6 +16,53 @@ class FileUtil {
 
   Future<File> get movesFile async => await _file('moves');
 
+  Future<File> get answersFile async => await _file('answers');
+
+  Future<File> get featuresFile async => await _file('features');
+
+  Future<void> saveAnswers(Map<String, String> answers) async {
+    File file = await answersFile;
+    String jsonString = json.encode(answers) + '\n';
+    await file.writeAsString(jsonString, mode: FileMode.writeOnlyAppend);
+  }
+
+  Future<String> uploadMoves(String uuid) async {
+    return await _upload(await movesFile, uuid, 'answers');
+  }
+
+  Future<String> uploadStops(String uuid) async {
+    return await _upload(await stopsFile, uuid, 'stops');
+  }
+
+  Future<String> uploadPoints(String uuid) async {
+    /// Save to firebase. Date is added to the points file name on firebase
+    File pointsFile = await FileUtil().pointsFile;
+    String dateString =
+        '${DateTime.now().year}-${DateTime.now().month}-${DateTime.now().day}';
+    String urlPoints = await _upload(pointsFile, uuid, 'points-$dateString');
+    return urlPoints;
+  }
+
+  Future<String> uploadAnswers(String uuid) async {
+    return await _upload(await answersFile, uuid, 'answers');
+  }
+
+  Future<String> uploadFeatures(String uuid) async {
+    return await _upload(await featuresFile, uuid, 'features');
+  }
+
+  Future<String> _upload(File f, String uuid, String prefix) async {
+    /// Create a folder using the UUID,
+    /// if not created, and write to a  file inside it
+    String fireBaseFileName = '${uuid}/${prefix}_$uuid.json';
+    StorageReference firebaseStorageRef =
+    FirebaseStorage.instance.ref().child(fireBaseFileName);
+    StorageUploadTask uploadTask = firebaseStorageRef.putFile(f);
+    StorageTaskSnapshot downloadUrl = await uploadTask.onComplete;
+    String url = await downloadUrl.ref.getDownloadURL();
+    return url;
+  }
+
   Future<Iterable<Map<String, dynamic>>> _loadFromAssets(String path) async {
     String delimiter = '\n';
     String content = await rootBundle.loadString(path);

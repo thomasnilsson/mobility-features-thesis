@@ -13,9 +13,20 @@ class _MainPageState extends State<MainPage> {
   FeaturesAggregate _features;
   AppState _state = AppState.NO_FEATURES;
   AppProcessor processor = AppProcessor();
+  bool streamingLocation = false;
 
   void initialize() async {
     await processor.initialize();
+    setState(() {
+      streamingLocation = processor.streamingLocation;
+    });
+  }
+
+  void restart() async {
+    await processor.restart();
+    setState(() {
+      streamingLocation = processor.streamingLocation;
+    });
   }
 
   @override
@@ -75,7 +86,8 @@ class _MainPageState extends State<MainPage> {
             "Location variance",
             "${(111.133 * _features.locationVarianceDaily).toStringAsFixed(5)} km",
             Icons.crop_rotate),
-        entry("Points today", "${processor.pointsCollectedToday}", Icons.my_location),
+        entry("Points today", "${processor.pointsCollectedToday}",
+            Icons.my_location),
         entry("No. days tracked", "${_features.uniqueDates.length}",
             Icons.date_range),
       ],
@@ -134,7 +146,7 @@ class _MainPageState extends State<MainPage> {
             Container(
                 margin: EdgeInsets.only(top: 50),
                 child:
-                Center(child: CircularProgressIndicator(strokeWidth: 10)))
+                    Center(child: CircularProgressIndicator(strokeWidth: 10)))
           ]))
     ];
   }
@@ -148,14 +160,12 @@ class _MainPageState extends State<MainPage> {
       return _contentNoFeatures();
   }
 
-
   void goToPatientPage() {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => InfoPage(processor.uuid)),
     );
   }
-
 
   void goToQuestionPage() {
     Navigator.push(
@@ -186,10 +196,14 @@ class _MainPageState extends State<MainPage> {
           )
         ],
       ),
-      body: Column(children: _showContent()),
+      body: streamingLocation
+          ? Text('Location is being tracked 👍')
+          : Text(
+              'Location is not tracking 🤨. Go into your Settings App > Privacy > Location Services, find the Runner App, and choose Always allow. Then click the restart button below 👍'),
+//      body: Column(children: _showContent()),
       floatingActionButton: FloatingActionButton(
-        onPressed: _updateFeatures,
-        tooltip: 'Calculate features',
+        onPressed: restart,
+        tooltip: 'Restart',
         child: Icon(Icons.refresh),
       ), // This trailing comma makes auto-formatting nicer for build methods.
     );
