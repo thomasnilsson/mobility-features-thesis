@@ -31,6 +31,7 @@ class DataPreprocessor {
 
   /// Find the stops in a sequence of gps data points
   List<Stop> findStops(List<SingleLocationPoint> data, {bool filter: true}) {
+    if (data.isEmpty) return [];
     /// Filter out data not on the specified date
     if (filter) {
       data = pointsToday(data);
@@ -109,6 +110,8 @@ class DataPreprocessor {
 
   List<Move> findMoves(List<SingleLocationPoint> data, List<Stop> stops,
       {bool filter: true}) {
+
+    if (stops.isEmpty) return [];
     /// Filter out data not on the specified date
     if (filter) {
       data = pointsToday(data);
