@@ -2,14 +2,14 @@ part of mobility_features_lib;
 
 const int MILLISECONDS_IN_A_DAY = 24 * 60 * 60 * 1000;
 
-class FeaturesAggregate {
+class Features {
   List<Stop> _stops, _stopsDaily;
   List<Place> _places, _placesDaily;
   List<Move> _moves, _movesDaily;
   DateTime _date;
   List<DateTime> _uniqueDates;
 
-  FeaturesAggregate(this._date, this._stops, this._places, this._moves) {
+  Features(this._date, this._stops, this._places, this._moves) {
     this._stopsDaily =
         _stops.where((d) => d.arrival.midnight == _date).toList();
     this._placesDaily = _places
@@ -89,9 +89,6 @@ class FeaturesAggregate {
 
   /// Home Stay
   double get homeStay {
-//    int total =
-//        _places.map((p) => p.duration.inMilliseconds).fold(0, (a, b) => a + b);
-
     int total = uniqueDates.length * MILLISECONDS_IN_A_DAY;
     int homeId = _homePlaceIdForPeriod();
     if (homeId == -1) return -1.0;
@@ -125,7 +122,6 @@ class FeaturesAggregate {
   void printOverview() {
     print('''
       Features ($date)
-        - Aggregate
         - Number of places: $numberOfClusters
         - Number of places today: $numberOfClustersDaily
         - Home stay: $homeStay
@@ -225,5 +221,27 @@ class FeaturesAggregate {
   /// Home Stay calculation
   double _calcHomeStay(int timeSpentTotal, int timeSpentAtHome) {
     return timeSpentAtHome.toDouble() / timeSpentTotal.toDouble();
+  }
+
+
+
+  /// Serialization
+  Map<String, dynamic> toJson() {
+    return {
+      'date' : date.toIso8601String(),
+      'number_of_places' : numberOfClusters,
+      'number_of_places_today' : numberOfClustersDaily,
+      'home_stay' : homeStay,
+      'home_stay_today'  : homeStayDaily,
+      'entropy' : entropy,
+      'entropy_today' : entropyDaily,
+      'normalized_entropy' : normalizedEntropy,
+      'normalized_entropy_today' : normalizedEntropyDaily,
+      'total_distance' : totalDistance,
+      'total_distance_today' : totalDistanceDaily,
+      'routine_index' : routineIndexAggregate,
+      'routine_index_today' : routineIndexDaily,
+
+    };
   }
 }

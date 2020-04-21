@@ -10,9 +10,7 @@ class QuestionPage extends StatefulWidget {
 
 class _QuestionPageState extends State<QuestionPage> {
   final _formKey = GlobalKey<FormState>();
-  String answerHomeStay = 'No answer';
-  String answerPlaces = 'No answer';
-  String answerRoutine = 'No answer';
+  String _defaultAnswer = 'No Answer';
 
   Map<String, String> _answers = {
     'datetime': null,
@@ -21,11 +19,32 @@ class _QuestionPageState extends State<QuestionPage> {
     'routine': null,
   };
 
-  TextStyle bigText = TextStyle(fontSize: 30);
-  TextStyle mediumText = TextStyle(fontSize: 20);
-
   bool _submitted = false;
   bool _allAnswersCompleted = false;
+
+  String _routineAnswer() {
+    String val = _answers['routine'];
+    if (val != null) {
+      return val == '0' ? 'No' : 'Yes';
+    }
+    return _defaultAnswer;
+  }
+
+  String _placesAnswer() {
+    String val = _answers['places'];
+    if (val != null) {
+      return '$val places';
+    }
+    return _defaultAnswer;
+  }
+
+  String _homeAnswer() {
+    String val = _answers['home'];
+    if (val != null) {
+      return '$val hours';
+    }
+    return _defaultAnswer;
+  }
 
   void checkAllAnswers() {
     setState(() {
@@ -38,8 +57,8 @@ class _QuestionPageState extends State<QuestionPage> {
   void routinePicker(BuildContext context) {
     new Picker(
         adapter: PickerDataAdapter(data: [
-          PickerItem(text: Text('Yes')),
-          PickerItem(text: Text('No'))
+          PickerItem(text: Text('No')),
+          PickerItem(text: Text('Yes'))
         ]),
         hideHeader: true,
         title: new Text("Select an answer"),
@@ -88,7 +107,7 @@ class _QuestionPageState extends State<QuestionPage> {
   Widget questionPlaces() {
     return paddedContainer(Column(children: <Widget>[
       Text('How many unique places did you visit today?', style: mediumText),
-      Text(_answers['places'] ?? 'Select an answer', style: bigText),
+      Text(_placesAnswer(), style: bigText),
       FlatButton(
         color: Colors.green,
         child: Text('Pick an answer'),
@@ -103,7 +122,10 @@ class _QuestionPageState extends State<QuestionPage> {
       children: <Widget>[
         Text('How many hours did you spend away from home today?',
             style: mediumText),
-        Text(_answers['home'] ?? 'Select an answer', style: bigText),
+        Text(
+          _homeAnswer(),
+          style: bigText,
+        ),
         FlatButton(
           color: Colors.green,
           child: Text('Pick an answer'),
@@ -119,7 +141,7 @@ class _QuestionPageState extends State<QuestionPage> {
       children: <Widget>[
         Text("Did you spend time at places you normally don't visit?",
             style: mediumText),
-        Text(_answers['routine'] ?? 'Select an answer', style: bigText),
+        Text(_routineAnswer(), style: bigText),
         FlatButton(
           color: Colors.green,
           child: Text('Pick an answer'),
@@ -133,7 +155,7 @@ class _QuestionPageState extends State<QuestionPage> {
   Widget submitButton() {
     return Container(
         width: 200,
-        height: 40,
+        height: 60,
         child: RaisedButton(
           onPressed: _allAnswersCompleted ? _saveAnswers : null,
           child: Text(
@@ -167,8 +189,20 @@ class _QuestionPageState extends State<QuestionPage> {
           child: Column(
             children: <Widget>[
               questionPlaces(),
+              Divider(
+                height: 20,
+                thickness: 1,
+              ),
               questionHomeStay(context),
+              Divider(
+                height: 20,
+                thickness: 1,
+              ),
               questionRoutine(context),
+              Divider(
+                height: 20,
+                thickness: 1,
+              ),
               submitButton()
             ],
           ),
@@ -176,14 +210,18 @@ class _QuestionPageState extends State<QuestionPage> {
   }
 
   Widget thankYou() {
-    return Center(child: Text('Thank you for reporting today!', style: bigText));
+    return paddedContainer(
+      Text(
+          'Thank you for reporting today! 🎉\n\nPlease go back to the main screen and keep the app running in the background.',
+          style: mediumText),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return new Scaffold(
         appBar: new AppBar(
-          title: new Text('Question Page'),
+          title: new Text('Daily Report'),
         ),
         body: _submitted ? thankYou() : getForm(context));
   }

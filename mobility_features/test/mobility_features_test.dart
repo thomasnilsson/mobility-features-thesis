@@ -43,7 +43,7 @@ void main() async {
 
     List<Place> places = dp.findPlaces(stops);
 
-    FeaturesAggregate f = FeaturesAggregate(dates.last, stops, places, moves);
+    Features f = Features(dates.last, stops, places, moves);
 
     print('Stops found:');
     print('*' * 50);
@@ -164,8 +164,8 @@ void main() async {
       List<Move> movesOnDate = dp.findMoves(dataOnDate, stopsOnDate);
       moves.addAll(movesOnDate);
 
-      FeaturesAggregate features =
-          FeaturesAggregate(date, stops, places, moves);
+      Features features =
+          Features(date, stops, places, moves);
       print('$date | RoutineIndex: ${features.routineIndexDaily}');
     }
   });
@@ -437,8 +437,8 @@ void main() async {
 
       /// Calculate features
       startTime = DateTime.now();
-      FeaturesAggregate features =
-          FeaturesAggregate(today, stopsAll, placesAll, movesAll);
+      Features features =
+          Features(today, stopsAll, placesAll, movesAll);
       endTime = DateTime.now();
       print(
           'Duration of creating features object: ${takeTime(startTime, endTime)}');
@@ -476,9 +476,10 @@ void main() async {
       moves.addAll(preprocessor.findMoves(pointsToday, stops, filter: false));
       places = preprocessor.findPlaces(stops);
 
-      FeaturesAggregate features = FeaturesAggregate(today, stops, places, moves);
-      features.printOverview();
+      Features features = Features(today, stops, places, moves);
+      print(features.toJson());
       print(features.hourMatrixDaily);
+
     }
 
     printList(stops);
