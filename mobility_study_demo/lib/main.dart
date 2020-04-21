@@ -17,17 +17,24 @@ import 'package:uuid/uuid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:isolate';
 import 'package:flutter_picker/flutter_picker.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 part 'package:mobility_study_demo/logic/file_util.dart';
+
 part 'package:mobility_study_demo/logic/app_processor.dart';
+
 part 'package:mobility_study_demo/screens/info_page.dart';
-part 'package:mobility_study_demo/screens/question_page.dart';
+
+part 'package:mobility_study_demo/screens/diary_page.dart';
+
 part 'package:mobility_study_demo/screens/main_page.dart';
 
+part 'constants.dart';
 
 void main() => runApp(MobilityStudy());
 
 class MobilityStudy extends StatelessWidget {
+
   @override
   Widget build(BuildContext context) {
     /// Set device orientation, i.e. disable landscape mode
@@ -37,10 +44,10 @@ class MobilityStudy extends StatelessWidget {
 
     return new MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: MainPage(title: 'Mobility Study Demo'),
+        home: MainPage(title: 'Main Page'),
         theme: ThemeData(
-          primaryColor: Colors.green,
-          accentColor: Colors.green,
+          primaryColor: Colors.blue,
+          accentColor: Colors.blue,
         ));
   }
 }

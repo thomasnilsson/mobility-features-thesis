@@ -1,23 +1,27 @@
 part of app;
 
 class AppProcessor {
+  static const int BUFFER_SIZE = 100;
   FileUtil util = FileUtil();
   Geolocator _geoLocator = Geolocator();
+  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging();
 
   String uuid;
   Serializer<SingleLocationPoint> _pointSerializer;
   Serializer<Stop> _stopSerializer;
   Serializer<Move> _moveSerializer;
   List<SingleLocationPoint> _pointsBuffer = [];
-  static const int BUFFER_SIZE = 100;
+
   int pointsCollectedToday = 0;
   bool streamingLocation = false;
   StreamSubscription<Position> _subscription;
+  int numberOfBuffers = 0;
 
   Future initialize() async {
     await _loadUUID();
     await _initSerializers();
     await _initLocation();
+//    await _initNotificationService();
   }
 
   Future restart() async {
@@ -27,6 +31,16 @@ class AppProcessor {
     }
 
     await _initLocation();
+  }
+
+  Future _initNotificationService() async {
+    await _firebaseMessaging.requestNotificationPermissions();
+    _firebaseMessaging.configure(onMessage: _onMessage);
+  }
+
+  Future<dynamic> _onMessage(Map<String, dynamic> message) async {
+    print(message);
+    return message;
   }
 
   Future _initSerializers() async {
@@ -46,8 +60,7 @@ class AppProcessor {
     await _geoLocator.isLocationServiceEnabled().then((response) {
       if (response) {
         streamingLocation = true;
-        _subscription =
-            _geoLocator.getPositionStream(options).listen(_onData);
+        _subscription = _geoLocator.getPositionStream(options).listen(_onData);
       } else {
         print('Location service not enabled');
       }
@@ -55,16 +68,7 @@ class AppProcessor {
   }
 
   Future<void> _loadUUID() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    uuid = prefs.getString('uuid');
-    if (uuid == null) {
-      uuid = Uuid().v4();
-      print('UUID generated> $uuid');
-      prefs.setString('uuid', uuid);
-    } else {
-      print('Loaded UUID succesfully: $uuid');
-      prefs.setString('uuid', uuid);
-    }
+    uuid = await FileUtil().loadUUID();
   }
 
   /// Loads local data points and filters older points out if needed
@@ -99,37 +103,19 @@ class AppProcessor {
       _pointsBuffer = [];
       String urlPoints = await FileUtil().uploadPoints(uuid);
       print(urlPoints);
+
+      /// If enough data has been collected, evaluate features
+      numberOfBuffers++;
+      if (numberOfBuffers >= 5) {
+        numberOfBuffers = 0;
+        /// Off load to background, i.e. do not AWAIT
+        saveAndUpload();
+      }
     }
   }
 
-  Future<FeaturesAggregate> computeFeaturesAsync() async {
-    /// Load points, stops and moves via package
-    print('Reading points');
-    List<SingleLocationPoint> points = await _loadLocalPoints();
-    pointsCollectedToday = points.length;
-
-    print('Reading stops');
-    List<Stop> stops = await _stopSerializer.load();
-
-    print('Reading moves');
-    List<Move> moves = await _moveSerializer.load();
-
-    ReceivePort receivePort = ReceivePort();
-    await Isolate.spawn(_asyncComputation, receivePort.sendPort);
-    SendPort sendPort = await receivePort.first;
-
-    FeaturesAggregate features = await relay(sendPort, points, stops, moves);
-    return features;
-  }
-
-  Future relay(SendPort sp, List<SingleLocationPoint> points, List<Stop> stops,
+  Future _relay(SendPort sp, List<SingleLocationPoint> points, List<Stop> stops,
       List<Move> moves) {
-//    Map args = {
-//      'sendPort': sendPort,
-//      'points': points,
-//      'stops': stops,
-//      'moves': moves,
-//    };
     ReceivePort receivePort = ReceivePort();
     sp.send([points, stops, moves, receivePort.sendPort]);
     return receivePort.first;
@@ -140,10 +126,6 @@ class AppProcessor {
     ReceivePort receivePort = ReceivePort();
     sendPort.send(receivePort.sendPort);
     List args = await receivePort.first;
-//    SendPort replyPort = args['sendPort'];
-//    List<SingleLocationPoint> points = args['points'];
-//    List<Stop> stops = args['stops'];
-//    List<Move> moves = args['moves'];
 
     List<SingleLocationPoint> points = args[0];
     List<Stop> stops = args[1];
@@ -198,8 +180,7 @@ class AppProcessor {
     for (final x in placesAll) print(x);
 
     /// Extract features
-    FeaturesAggregate features =
-        FeaturesAggregate(today, stopsAll, placesAll, movesAll);
+    Features features = Features(today, stopsAll, placesAll, movesAll);
 
     /// TODO: Can probably remove this
     features.printOverview();
@@ -208,7 +189,7 @@ class AppProcessor {
   }
 
   /// Feature Calculation
-  Future<FeaturesAggregate> calculateFeatures() async {
+  Future<Features> _calculateFeatures() async {
     /// Load points, stops and moves via package
     print('Reading points');
 
@@ -250,11 +231,13 @@ class AppProcessor {
             .toList();
 
     print('Calculating new stops...');
-    List<Stop> stopsToday = preprocessor.findStops(points, filter: false);
+    List<Stop> stopsToday =
+        points.isEmpty ? [] : preprocessor.findStops(points, filter: false);
 
     print('Calculating new moves...');
-    List<Move> movesToday =
-        preprocessor.findMoves(points, stopsToday, filter: false);
+    List<Move> movesToday = stopsToday.isEmpty
+        ? []
+        : preprocessor.findMoves(points, stopsToday, filter: false);
 
     /// Get all stop, moves, and places
     List<Stop> stopsAll = stopsOld + stopsToday;
@@ -268,8 +251,7 @@ class AppProcessor {
     List<Place> placesAll = preprocessor.findPlaces(stopsAll);
 
     /// Extract features
-    FeaturesAggregate features =
-        FeaturesAggregate(today, stopsAll, placesAll, movesAll);
+    Features features = Features(today, stopsAll, placesAll, movesAll);
 
     /// TODO: Can probably remove this
     features.printOverview();
@@ -277,14 +259,14 @@ class AppProcessor {
     return features;
   }
 
-  Future<void> saveStopsAndMoves(List<Stop> stops, List<Move> moves) async {
-    /// Clean up files
-    await _stopSerializer.flush();
-    await _moveSerializer.flush();
+  Future<void> saveAndUpload() async {
+    /// Calculate features, then store stops, move and features
+    Features features = await _calculateFeatures();
 
-    /// Write updates values
-    await _stopSerializer.save(stops);
-    await _moveSerializer.save(moves);
+    await _saveOnDevice(features);
+
+    String urlFeatures = await FileUtil().uploadFeatures(uuid);
+    print(urlFeatures);
 
     String urlPoints = await FileUtil().uploadPoints(uuid);
     print(urlPoints);
@@ -294,5 +276,19 @@ class AppProcessor {
 
     String urlMoves = await FileUtil().uploadMoves(uuid);
     print(urlMoves);
+
+    print('Saved features');
+  }
+
+  Future<void> _saveOnDevice(Features features) async {
+    await FileUtil().saveFeatures(features);
+
+    /// Clean up files
+    await _stopSerializer.flush();
+    await _moveSerializer.flush();
+
+    /// Write updates values
+    await _stopSerializer.save(features.stops);
+    await _moveSerializer.save(features.moves);
   }
 }

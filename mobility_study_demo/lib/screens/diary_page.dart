@@ -1,31 +1,41 @@
 part of app;
 
-class QuestionPage extends StatefulWidget {
+enum SubmitState { NOT_SUBMITTED, UPLOADING, SUBMITTED }
+
+class DiaryPage extends StatefulWidget {
   final String uuid;
 
-  QuestionPage(this.uuid);
+  DiaryPage(this.uuid);
 
-  State<StatefulWidget> createState() => new _QuestionPageState();
+  State<StatefulWidget> createState() => new _DiaryPageState();
 }
 
-class _QuestionPageState extends State<QuestionPage> {
-  final _formKey = GlobalKey<FormState>();
+class _DiaryPageState extends State<DiaryPage> {
   String _defaultAnswer = 'No Answer';
+  SubmitState _state = SubmitState.NOT_SUBMITTED;
 
   Map<String, String> _answers = {
     'datetime': null,
     'places': null,
     'home': null,
     'routine': null,
+    'routine_scale': null,
   };
 
-  bool _submitted = false;
   bool _allAnswersCompleted = false;
 
   String _routineAnswer() {
     String val = _answers['routine'];
     if (val != null) {
       return val == '0' ? 'No' : 'Yes';
+    }
+    return _defaultAnswer;
+  }
+
+  String _routineScaleAnswer() {
+    String val = _answers['routine_scale'];
+    if (val != null) {
+      return '$val/5';
     }
     return _defaultAnswer;
   }
@@ -50,8 +60,24 @@ class _QuestionPageState extends State<QuestionPage> {
     setState(() {
       _allAnswersCompleted = _answers['places'] != null &&
           _answers['home'] != null &&
-          _answers['routine'] != null;
+          _answers['routine'] != null &&
+          _answers['routine_scale'] != null;
     });
+  }
+
+  void routineScalePicker(BuildContext context) {
+    new Picker(
+        adapter: NumberPickerAdapter(data: [
+          NumberPickerColumn(begin: 0, end: 5),
+        ]),
+        hideHeader: true,
+        title: new Text("Select an answer"),
+        onConfirm: (Picker picker, List value) {
+          setState(() {
+            _answers['routine_scale'] = value.first.toString();
+            checkAllAnswers();
+          });
+        }).showDialog(context);
   }
 
   void routinePicker(BuildContext context) {
@@ -106,10 +132,10 @@ class _QuestionPageState extends State<QuestionPage> {
 
   Widget questionPlaces() {
     return paddedContainer(Column(children: <Widget>[
-      Text('How many unique places did you visit today?', style: mediumText),
+      Text('How many unique places did you stay at today?', style: mediumText),
       Text(_placesAnswer(), style: bigText),
       FlatButton(
-        color: Colors.green,
+        color: Colors.blue,
         child: Text('Pick an answer'),
         textColor: Colors.white,
         onPressed: () => placePicker(context),
@@ -120,14 +146,14 @@ class _QuestionPageState extends State<QuestionPage> {
   Widget questionHomeStay(BuildContext context) {
     return paddedContainer(Column(
       children: <Widget>[
-        Text('How many hours did you spend away from home today?',
+        Text('How many hours did you spend away from home today? (Rounded-up)',
             style: mediumText),
         Text(
           _homeAnswer(),
           style: bigText,
         ),
         FlatButton(
-          color: Colors.green,
+          color: Colors.blue,
           child: Text('Pick an answer'),
           textColor: Colors.white,
           onPressed: () => homeStayPicker(context),
@@ -139,14 +165,32 @@ class _QuestionPageState extends State<QuestionPage> {
   Widget questionRoutine(BuildContext context) {
     return paddedContainer(Column(
       children: <Widget>[
-        Text("Did you spend time at places you normally don't visit?",
+        Text(
+            "Did you spend time at places today that you don't normally visit?",
             style: mediumText),
         Text(_routineAnswer(), style: bigText),
         FlatButton(
-          color: Colors.green,
+          color: Colors.blue,
           child: Text('Pick an answer'),
           textColor: Colors.white,
           onPressed: () => routinePicker(context),
+        ),
+      ],
+    ));
+  }
+
+  Widget questionRoutineScale(BuildContext context) {
+    return paddedContainer(Column(
+      children: <Widget>[
+        Text(
+            "On a scale of 0-5, how much did today look like the previous, recent days? (Where 0 means 'not at all' little and 5 means 'Exactly the same')",
+            style: mediumText),
+        Text(_routineScaleAnswer(), style: bigText),
+        FlatButton(
+          color: Colors.blue,
+          child: Text('Pick an answer'),
+          textColor: Colors.white,
+          onPressed: () => routineScalePicker(context),
         ),
       ],
     ));
@@ -156,6 +200,7 @@ class _QuestionPageState extends State<QuestionPage> {
     return Container(
         width: 200,
         height: 60,
+        margin: EdgeInsets.all(20),
         child: RaisedButton(
           onPressed: _allAnswersCompleted ? _saveAnswers : null,
           child: Text(
@@ -171,45 +216,49 @@ class _QuestionPageState extends State<QuestionPage> {
     print(_answers);
     print('*' * 50);
     print('Saving answers on device...');
+
+    setState(() {
+      _state = SubmitState.UPLOADING;
+    });
+
     await FileUtil().saveAnswers(_answers);
     print('Uploading answers to firebase...');
     await FileUtil().uploadAnswers(widget.uuid);
     print('Done');
     setState(() {
-      _submitted = true;
+      _state = SubmitState.SUBMITTED;
     });
   }
 
-  Widget getForm(BuildContext context) {
-    return Form(
-        key: _formKey,
-        child: Center(
-            child: Container(
-          padding: EdgeInsets.all(20),
-          child: Column(
-            children: <Widget>[
-              questionPlaces(),
-              Divider(
-                height: 20,
-                thickness: 1,
-              ),
-              questionHomeStay(context),
-              Divider(
-                height: 20,
-                thickness: 1,
-              ),
-              questionRoutine(context),
-              Divider(
-                height: 20,
-                thickness: 1,
-              ),
-              submitButton()
-            ],
-          ),
-        )));
+  Widget _questionsView(BuildContext context) {
+    return ListView(
+      children: [
+        questionPlaces(),
+        Divider(
+          height: 20,
+          thickness: 1,
+        ),
+        questionHomeStay(context),
+        Divider(
+          height: 20,
+          thickness: 1,
+        ),
+        questionRoutine(context),
+        Divider(
+          height: 20,
+          thickness: 1,
+        ),
+        questionRoutineScale(context),
+        Divider(
+          height: 20,
+          thickness: 1,
+        ),
+        submitButton()
+      ],
+    );
   }
 
-  Widget thankYou() {
+  Widget _submittedView() {
     return paddedContainer(
       Text(
           'Thank you for reporting today! 🎉\n\nPlease go back to the main screen and keep the app running in the background.',
@@ -217,12 +266,32 @@ class _QuestionPageState extends State<QuestionPage> {
     );
   }
 
+  Widget _uploadingView() {
+    return Container(
+        margin: EdgeInsets.all(25),
+        child: Column(children: [
+          Text(
+            'Uploading answers...',
+            style: TextStyle(fontSize: 20),
+          ),
+          Container(
+              margin: EdgeInsets.only(top: 50),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 10)))
+        ]));
+  }
+
   @override
   Widget build(BuildContext context) {
     return new Scaffold(
         appBar: new AppBar(
-          title: new Text('Daily Report'),
+          title: new Text('Diary'),
         ),
-        body: _submitted ? thankYou() : getForm(context));
+
+        /// Check state and render a view accordingly
+        body: _state == SubmitState.SUBMITTED
+            ? _submittedView()
+            : _state == SubmitState.UPLOADING
+                ? _uploadingView()
+                : _questionsView(context));
   }
 }

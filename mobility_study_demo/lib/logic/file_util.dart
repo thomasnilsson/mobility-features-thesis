@@ -20,11 +20,33 @@ class FileUtil {
 
   Future<File> get featuresFile async => await _file('features');
 
+  Future<void> saveFeatures(Features features) async {
+    File file = await featuresFile;
+    String jsonString = json.encode(features.toJson()) + '\n';
+    await file.writeAsString(jsonString, mode: FileMode.writeOnlyAppend);
+  }
+
   Future<void> saveAnswers(Map<String, String> answers) async {
     File file = await answersFile;
     String jsonString = json.encode(answers) + '\n';
     await file.writeAsString(jsonString, mode: FileMode.writeOnlyAppend);
   }
+
+  Future<String> loadUUID() async {
+    String uuid;
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    uuid = prefs.getString('uuid');
+    if (uuid == null) {
+      uuid = Uuid().v4();
+      print('UUID generated> $uuid');
+      prefs.setString('uuid', uuid);
+    } else {
+      print('Loaded UUID succesfully: $uuid');
+      prefs.setString('uuid', uuid);
+    }
+    return uuid;
+  }
+
 
   Future<String> uploadMoves(String uuid) async {
     return await _upload(await movesFile, uuid, 'answers');
@@ -35,7 +57,7 @@ class FileUtil {
   }
 
   Future<String> uploadPoints(String uuid) async {
-    /// Save to firebase. Date is added to the points file name on firebase
+    /// Save to firebase. Date is added to the points file name in firebase
     File pointsFile = await FileUtil().pointsFile;
     String dateString =
         '${DateTime.now().year}-${DateTime.now().month}-${DateTime.now().day}';
