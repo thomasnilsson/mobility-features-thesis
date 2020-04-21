@@ -108,14 +108,69 @@ class AppProcessor {
       numberOfBuffers++;
       if (numberOfBuffers >= 5) {
         numberOfBuffers = 0;
+
         /// Off load to background, i.e. do not AWAIT
         saveAndUpload();
       }
     }
   }
 
+  Future<void> saveAndUpload() async {
+    /// Calculate features, then store stops, move and features
+    Features features = await _computeFeaturesAsync();
+
+    await _saveOnDevice(features);
+
+    String urlFeatures = await FileUtil().uploadFeatures(uuid);
+    print(urlFeatures);
+
+    String urlPoints = await FileUtil().uploadPoints(uuid);
+    print(urlPoints);
+
+    String urlStops = await FileUtil().uploadStops(uuid);
+    print(urlStops);
+
+    String urlMoves = await FileUtil().uploadMoves(uuid);
+    print(urlMoves);
+
+    print('Saved features');
+  }
+
+  Future<void> _saveOnDevice(Features features) async {
+    await FileUtil().saveFeatures(features);
+
+    /// Clean up files
+    await _stopSerializer.flush();
+    await _moveSerializer.flush();
+
+    /// Write updates values
+    await _stopSerializer.save(features.stops);
+    await _moveSerializer.save(features.moves);
+  }
+
+  Future<Features> _computeFeaturesAsync() async {
+    /// Load points, stops and moves via package
+    print('Reading points');
+    List<SingleLocationPoint> points = await _loadLocalPoints();
+    pointsCollectedToday = points.length;
+
+    print('Reading stops');
+    List<Stop> stops = await _stopSerializer.load();
+
+    print('Reading moves');
+    List<Move> moves = await _moveSerializer.load();
+
+    ReceivePort receivePort = ReceivePort();
+    await Isolate.spawn(_asyncComputation, receivePort.sendPort);
+    SendPort sendPort = await receivePort.first;
+
+    Features features = await _relay(sendPort, points, stops, moves);
+    return features;
+  }
+
   Future _relay(SendPort sp, List<SingleLocationPoint> points, List<Stop> stops,
       List<Move> moves) {
+
     ReceivePort receivePort = ReceivePort();
     sp.send([points, stops, moves, receivePort.sendPort]);
     return receivePort.first;
@@ -155,21 +210,15 @@ class AppProcessor {
                 fourWeeksAgo.leq(m.stopFrom.arrival.midnight))
             .toList();
 
-    print('Calculating new stops...');
-    List<Stop> stopsToday =
-        points.isEmpty ? [] : preprocessor.findStops(points, filter: false);
+    print('Calculating new stops and moves...');
+    List<Stop> stopsToday = preprocessor.findStops(points, filter: false);
+    List<Move> movesToday = preprocessor.findMoves(points, stopsToday, filter: false);
 
-    print('Calculating new moves...');
-    List<Move> movesToday = stopsToday.isEmpty
-        ? []
-        : preprocessor.findMoves(points, stopsToday, filter: false);
-
-    /// Get all stop, moves, and places
+    /// Concatenate old and new
     List<Stop> stopsAll = stopsOld + stopsToday;
     List<Move> movesAll = movesOld + movesToday;
 
     print('Calculating new places...');
-
     List<Place> placesAll = preprocessor.findPlaces(stopsAll);
 
     print('No. stops: ${stopsAll.length}');
@@ -186,109 +235,5 @@ class AppProcessor {
     features.printOverview();
     print(features.hourMatrixDaily);
     replyPort.send(features);
-  }
-
-  /// Feature Calculation
-  Future<Features> _calculateFeatures() async {
-    /// Load points, stops and moves via package
-    print('Reading points');
-
-    print('Reading pointts');
-    List<SingleLocationPoint> points = await _loadLocalPoints();
-
-    /// Downsample to make things easier...
-//    points = _downSample(points);
-    print('Points going into algorithms: ${points.length}');
-    pointsCollectedToday = points.length;
-
-    print('Reading stops');
-    List<Stop> stopsLoaded = await _stopSerializer.load();
-
-    print('Reading moves');
-    List<Move> movesLoaded = await _moveSerializer.load();
-
-    DateTime today = DateTime.now().midnight;
-    DataPreprocessor preprocessor = DataPreprocessor(today);
-    DateTime fourWeeksAgo = today.subtract(Duration(days: 28));
-    print('Filering out old stops/moves...');
-
-    /// Filter out stops and moves which were computed today,
-    /// which were just loaded as well as stops older than 28 days
-    List<Stop> stopsOld = stopsLoaded.isEmpty
-        ? stopsLoaded
-        : stopsLoaded
-            .where((s) =>
-                s.arrival.midnight != today.midnight &&
-                fourWeeksAgo.leq(s.arrival.midnight))
-            .toList();
-
-    List<Move> movesOld = movesLoaded.isEmpty
-        ? movesLoaded
-        : movesLoaded
-            .where((m) =>
-                m.stopFrom.arrival.midnight != today.midnight &&
-                fourWeeksAgo.leq(m.stopFrom.arrival.midnight))
-            .toList();
-
-    print('Calculating new stops...');
-    List<Stop> stopsToday =
-        points.isEmpty ? [] : preprocessor.findStops(points, filter: false);
-
-    print('Calculating new moves...');
-    List<Move> movesToday = stopsToday.isEmpty
-        ? []
-        : preprocessor.findMoves(points, stopsToday, filter: false);
-
-    /// Get all stop, moves, and places
-    List<Stop> stopsAll = stopsOld + stopsToday;
-    List<Move> movesAll = movesOld + movesToday;
-
-    print('No. stops: ${stopsAll.length}');
-    print('No. moves: ${movesAll.length}');
-
-    print('Calculating new places...');
-
-    List<Place> placesAll = preprocessor.findPlaces(stopsAll);
-
-    /// Extract features
-    Features features = Features(today, stopsAll, placesAll, movesAll);
-
-    /// TODO: Can probably remove this
-    features.printOverview();
-    print(features.hourMatrixDaily);
-    return features;
-  }
-
-  Future<void> saveAndUpload() async {
-    /// Calculate features, then store stops, move and features
-    Features features = await _calculateFeatures();
-
-    await _saveOnDevice(features);
-
-    String urlFeatures = await FileUtil().uploadFeatures(uuid);
-    print(urlFeatures);
-
-    String urlPoints = await FileUtil().uploadPoints(uuid);
-    print(urlPoints);
-
-    String urlStops = await FileUtil().uploadStops(uuid);
-    print(urlStops);
-
-    String urlMoves = await FileUtil().uploadMoves(uuid);
-    print(urlMoves);
-
-    print('Saved features');
-  }
-
-  Future<void> _saveOnDevice(Features features) async {
-    await FileUtil().saveFeatures(features);
-
-    /// Clean up files
-    await _stopSerializer.flush();
-    await _moveSerializer.flush();
-
-    /// Write updates values
-    await _stopSerializer.save(features.stops);
-    await _moveSerializer.save(features.moves);
   }
 }

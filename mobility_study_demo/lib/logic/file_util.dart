@@ -49,7 +49,7 @@ class FileUtil {
 
 
   Future<String> uploadMoves(String uuid) async {
-    return await _upload(await movesFile, uuid, 'answers');
+    return await _upload(await movesFile, uuid, 'moves');
   }
 
   Future<String> uploadStops(String uuid) async {

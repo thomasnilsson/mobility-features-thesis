@@ -74,6 +74,8 @@ class _MainPageState extends State<MainPage> {
   }
 
   void goToDiary() {
+    /// Dont await
+    processor.saveAndUpload();
     /// Go to next screen
     Navigator.push(
       context,
