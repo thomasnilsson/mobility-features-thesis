@@ -7,9 +7,10 @@ class Features {
   List<Place> _places, _placesDaily;
   List<Move> _moves, _movesDaily;
   DateTime _date;
+  DateTime _datetime;
   List<DateTime> _uniqueDates;
 
-  Features(this._date, this._stops, this._places, this._moves) {
+  Features(this._datetime, this._stops, this._places, this._moves) {
     this._stopsDaily =
         _stops.where((d) => d.arrival.midnight == _date).toList();
     this._placesDaily = _places
@@ -18,10 +19,11 @@ class Features {
     this._movesDaily =
         _moves.where((d) => d.stopFrom.arrival.midnight == _date).toList();
     this._uniqueDates = _stops.map((s) => s.arrival.midnight).toSet().toList();
+    this._date = _datetime.midnight;
   }
 
   /// Date
-  DateTime get date => _date;
+  DateTime get datetime => _datetime;
 
   List<DateTime> get uniqueDates => _uniqueDates;
 
@@ -121,7 +123,7 @@ class Features {
 
   void printOverview() {
     print('''
-      Features ($date)
+      Features ($datetime)
         - Number of places: $numberOfClusters
         - Number of places today: $numberOfClustersDaily
         - Home stay: $homeStay
@@ -228,7 +230,7 @@ class Features {
   /// Serialization
   Map<String, dynamic> toJson() {
     return {
-      'date' : date.toIso8601String(),
+      'datetime' : datetime.toIso8601String(),
       'number_of_places' : numberOfClusters,
       'number_of_places_today' : numberOfClustersDaily,
       'home_stay' : homeStay,
@@ -241,7 +243,6 @@ class Features {
       'total_distance_today' : totalDistanceDaily,
       'routine_index' : routineIndexAggregate,
       'routine_index_today' : routineIndexDaily,
-
     };
   }
 }
