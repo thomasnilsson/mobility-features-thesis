@@ -229,7 +229,7 @@ class AppProcessor {
     for (final x in placesAll) print(x);
 
     /// Extract features
-    Features features = Features(today, stopsAll, placesAll, movesAll);
+    Features features = Features(DateTime.now(), stopsAll, placesAll, movesAll);
 
     /// TODO: Can probably remove this
     features.printOverview();
