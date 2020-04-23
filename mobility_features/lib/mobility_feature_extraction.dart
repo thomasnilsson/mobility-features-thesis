@@ -7,10 +7,10 @@ class Features {
   List<Place> _places, _placesDaily;
   List<Move> _moves, _movesDaily;
   DateTime _date;
-  DateTime _datetime;
   List<DateTime> _uniqueDates;
+  DateTime _timestamp = DateTime.now();
 
-  Features(this._datetime, this._stops, this._places, this._moves) {
+  Features(this._date, this._stops, this._places, this._moves) {
     this._stopsDaily =
         _stops.where((d) => d.arrival.midnight == _date).toList();
     this._placesDaily = _places
@@ -19,11 +19,10 @@ class Features {
     this._movesDaily =
         _moves.where((d) => d.stopFrom.arrival.midnight == _date).toList();
     this._uniqueDates = _stops.map((s) => s.arrival.midnight).toSet().toList();
-    this._date = _datetime.midnight;
   }
 
   /// Date
-  DateTime get datetime => _datetime;
+  DateTime get date => _date;
 
   List<DateTime> get uniqueDates => _uniqueDates;
 
@@ -79,11 +78,19 @@ class Features {
 
   /// Routine index (daily)
   double get routineIndexDaily =>
-      _calcRoutineIndex([DateTime.now().midnight], historicalDates);
+      _calcRoutineIndex([_date.midnight], historicalDates);
 
   /// Routine index (aggregate)
   double get routineIndexAggregate =>
       _calcRoutineIndex(_uniqueDates, historicalDates);
+
+  /// Routine index (daily)
+  double get routineOverlapDaily =>
+      _routineOverlap([_date.midnight], historicalDates);
+
+  /// Routine index (aggregate)
+  double get routineOverlapAggregate =>
+      _routineOverlap(_uniqueDates, historicalDates);
 
   Place _placeLookUp(int id) {
     return _places.where((p) => p.id == id).first;
@@ -122,21 +129,8 @@ class Features {
       HourMatrix.fromStops(_stopsDaily, numberOfClusters);
 
   void printOverview() {
-    print('''
-      Features ($datetime)
-        - Number of places: $numberOfClusters
-        - Number of places today: $numberOfClustersDaily
-        - Home stay: $homeStay
-        - Home stay today: $homeStayDaily
-        - Entropy: $entropy
-        - Entropy today: $entropyDaily
-        - Normalized entropy: $normalizedEntropy
-        - Normalized entropy today: $normalizedEntropyDaily
-        - Total distance: $totalDistance
-        - Total distance today: $totalDistanceDaily
-        - Routine index: $routineIndexAggregate
-        - Routine index today: $routineIndexDaily
-    ''');
+    JsonEncoder encoder = new JsonEncoder.withIndent('  ');
+    print(encoder.convert(toJson()));
   }
 
   /// Auxiliary calculations for feature extraction
@@ -158,22 +152,24 @@ class Features {
 
     if (historical.isEmpty) return -1.0;
 
-    /// Compute average matrix over historical dates
+    /// Make historical Hour Matrices
     List<HourMatrix> matrices = historical
         .map((d) => HourMatrix.fromStops(
             _stops.where((s) => s.arrival.midnight == d.midnight).toList(),
             numberOfClusters))
         .toList();
 
+    /// Compute average matrix for the historical dates
     HourMatrix avgMatrix = HourMatrix.average(matrices);
 
-    /// For each date in current, compute the error between it,
+    /// For each date in current dates:
+    /// Compute the error between the HourMatrix of this date,
     /// and the average historical matrix
     for (DateTime d in current) {
-      HourMatrix hm = HourMatrix.fromStops(
+      HourMatrix matrixToday = HourMatrix.fromStops(
           _stops.where((s) => s.arrival.midnight == d).toList(),
           numberOfClusters);
-      avgError += hm.computeError(avgMatrix) / current.length;
+      avgError += matrixToday.computeError(avgMatrix) / current.length;
     }
     return 1 - avgError;
   }
@@ -225,24 +221,77 @@ class Features {
     return timeSpentAtHome.toDouble() / timeSpentTotal.toDouble();
   }
 
+//  def RI(A, B, end_hour=24):
+//  '''
+//    input:
+//        A (2d matrix): Today
+//        H (2d matrix): Historical Avg
+//
+//    output:
+//        routine_index: -1 (could not be calculated) or [0 to 1].
+//    '''
+//
+//  assert (A.shape == B.shape)
+//  M, N = A.shape
+//
+//  total = 0.5 * (A.sum() + B.sum())
+//  if total == 0:
+//  return -1.0
+//
+//  overlap = 0.0
+//  for i in range(0, M):
+//  for j in range(0, N):
+//  if A[i,j] > 0 or B[i,j]:
+//  overlap += min(A[i,j], B[i,j])
+//
+//  return overlap / total
 
+  double _routineOverlap(List<DateTime> days, List<DateTime> historical) {
+    double avgOverlap = 0.0;
+
+    if (historical.isEmpty) return -1.0;
+
+    /// Make historical Hour Matrices
+    List<HourMatrix> matrices = historical
+        .map((d) => HourMatrix.fromStops(
+            _stops.where((s) => s.arrival.midnight == d.midnight).toList(),
+            numberOfClusters))
+        .toList();
+
+    /// Compute average matrix for the historical dates
+    HourMatrix avgMatrix = HourMatrix.average(matrices);
+
+    /// For each date in current dates:
+    /// Compute the error between the HourMatrix of this date,
+    /// and the average historical matrix
+    for (DateTime d in days) {
+      HourMatrix matrixToday = HourMatrix.fromStops(
+          _stops.where((s) => s.arrival.midnight == d).toList(),
+          numberOfClusters);
+      avgOverlap += matrixToday.computeOverlap(avgMatrix) / days.length;
+    }
+    return avgOverlap;
+  }
 
   /// Serialization
   Map<String, dynamic> toJson() {
     return {
-      'datetime' : datetime.toIso8601String(),
-      'number_of_places' : numberOfClusters,
-      'number_of_places_today' : numberOfClustersDaily,
-      'home_stay' : homeStay,
-      'home_stay_today'  : homeStayDaily,
-      'entropy' : entropy,
-      'entropy_today' : entropyDaily,
-      'normalized_entropy' : normalizedEntropy,
-      'normalized_entropy_today' : normalizedEntropyDaily,
-      'total_distance' : totalDistance,
-      'total_distance_today' : totalDistanceDaily,
-      'routine_index' : routineIndexAggregate,
-      'routine_index_today' : routineIndexDaily,
+      'date': date.toIso8601String(),
+      'timestamp': _timestamp.toIso8601String(),
+      'number_of_places': numberOfClusters,
+      'number_of_places_today': numberOfClustersDaily,
+      'home_stay': homeStay,
+      'home_stay_today': homeStayDaily,
+      'entropy': entropy,
+      'entropy_today': entropyDaily,
+      'normalized_entropy': normalizedEntropy,
+      'normalized_entropy_today': normalizedEntropyDaily,
+      'total_distance': totalDistance,
+      'total_distance_today': totalDistanceDaily,
+      'routine_index': routineIndexAggregate,
+      'routine_index_today': routineIndexDaily,
+      'routine_overlap': routineOverlapAggregate,
+      'routine_overlap_today': routineOverlapDaily,
     };
   }
 }

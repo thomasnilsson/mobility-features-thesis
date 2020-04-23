@@ -328,7 +328,6 @@ void main() async {
   });
 
   test('Simulate everything', () async {
-    DateTime startTime, endTime;
 
     Serializer<SingleLocationPoint> dataSerializer =
         Serializer(new File('$testDataDir/points.json'));
@@ -367,33 +366,19 @@ void main() async {
       DataPreprocessor preprocessor = DataPreprocessor(today);
 
       /// Time passes, and we now need the data
-      startTime = DateTime.now();
       List<SingleLocationPoint> loadedData = await dataSerializer.load();
-      endTime = DateTime.now();
-      print('Duration of loading points: ${takeTime(startTime, endTime)}');
 
       /// Filter out data points NOT from today which may be stored in the file,
       /// from a previous day
-      startTime = DateTime.now();
       List<SingleLocationPoint> loadedDataFromToday =
           preprocessor.pointsToday(loadedData);
-      endTime = DateTime.now();
-      print('Duration of filtering points: ${takeTime(startTime, endTime)}');
 
       /// Remember to add the remaining buffer to the loaded data as well.
       List<SingleLocationPoint> pointsAll = loadedDataFromToday + buffer;
 
       /// Find new stops and moves
-      startTime = DateTime.now();
-      print('No. points: ${pointsAll.length}');
       List<Stop> stopsToday = preprocessor.findStops(pointsAll);
-      endTime = DateTime.now();
-      print('Duration of finding stops: ${takeTime(startTime, endTime)}');
-
-      startTime = DateTime.now();
       List<Move> movesToday = preprocessor.findMoves(pointsAll, stopsToday);
-      endTime = DateTime.now();
-      print('Duration of finding moves: ${takeTime(startTime, endTime)}');
 
       /// Load old stops and moves
       List<Stop> stopsLoaded = await stopSerializer.load();
@@ -436,17 +421,10 @@ void main() async {
       moveSerializer.save(movesAll);
 
       /// Calculate features
-      startTime = DateTime.now();
       Features features =
           Features(today, stopsAll, placesAll, movesAll);
-      endTime = DateTime.now();
-      print(
-          'Duration of creating features object: ${takeTime(startTime, endTime)}');
 
-      startTime = DateTime.now();
-      features.printOverview();
-      endTime = DateTime.now();
-      print('Duration of generating features: ${takeTime(startTime, endTime)}');
+      print("Routine Overlap: ${features.routineOverlapDaily}");
     }
   });
 
@@ -477,9 +455,7 @@ void main() async {
       places = preprocessor.findPlaces(stops);
 
       Features features = Features(today, stops, places, moves);
-      print(features.toJson());
-      print(features.hourMatrixDaily);
-
+      features.printOverview();
     }
 
     printList(stops);
@@ -490,10 +466,10 @@ void main() async {
 
   test('Simple serialization test', () async {
     Serializer<SingleLocationPoint> serializer =
-        Serializer(new File('$testDataDir/test.json'));
+    Serializer(new File('$testDataDir/test.json'));
 
     SingleLocationPoint p1 =
-        SingleLocationPoint(Location(12.345, 98.765), DateTime(2020, 02, 16));
+    SingleLocationPoint(Location(12.345, 98.765), DateTime(2020, 02, 16));
 
     await serializer.flush();
     await serializer.save([p1, p1, p1]);
@@ -505,4 +481,9 @@ void main() async {
     List loaded = await serializer.load();
     print(loaded.length);
   });
+
+
+
+
+
 }

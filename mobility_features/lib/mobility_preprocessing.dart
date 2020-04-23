@@ -22,10 +22,8 @@ class DataPreprocessor {
 
   /// Filter out data not on the specified date
   List<SingleLocationPoint> pointsToday(List<SingleLocationPoint> data) {
-    print('Filtering points by date...');
     List<SingleLocationPoint> filtered =
         data.where((x) => x.datetime.midnight == _date.midnight).toList();
-    print('Finished filtering!');
     return filtered;
   }
 

@@ -328,6 +328,16 @@ class HourMatrix {
     return -1;
   }
 
+  double get sum {
+    double s = 0.0;
+    for (int i = 0; i < HOURS_IN_A_DAY; i++) {
+      for (int j = 0; j < _numberOfPlaces; j++) {
+        s += this.matrix[i][j];
+      }
+    }
+    return s;
+  }
+
 
   /// Calculates the error between two matrices
   double computeError(HourMatrix other) {
@@ -335,16 +345,49 @@ class HourMatrix {
     assert(other.matrix.length == HOURS_IN_A_DAY &&
         other.matrix.first.length == _matrix.first.length);
 
-    /// Count errors
+    /// Cumulative error between the two matrices
     double error = 0.0;
+    //
     for (int i = 0; i < HOURS_IN_A_DAY; i++) {
       for (int j = 0; j < _numberOfPlaces; j++) {
         error += (this.matrix[i][j] - other.matrix[i][j]).abs();
       }
     }
 
-    /// Compute average
+    /// Compute average error by dividing by the number of total entries
     return error / (HOURS_IN_A_DAY * _numberOfPlaces);
+  }
+
+  /// Calculates the error between two matrices
+  double computeOverlap(HourMatrix other) {
+    /// Check that dimensions match
+    assert(other.matrix.length == HOURS_IN_A_DAY &&
+        other.matrix.first.length == _matrix.first.length);
+
+    double maxOverlap = min(this.sum, other.sum);
+
+    if (maxOverlap == 0.0) return -1.0;
+    /// Cumulative error between the two matrices
+    double overlap = 0.0;
+    //
+    for (int i = 0; i < HOURS_IN_A_DAY; i++) {
+      for (int j = 0; j < _numberOfPlaces; j++) {
+        /// If overlap in time-place matrix,
+        /// add the overlap to the total overlap.
+        /// The overlap is equal to the minimum of the two quantities
+        if (this.matrix[i][j] > 0.0 && other.matrix[i][j] > 0.0) {
+          overlap += min(this.matrix[i][j], other.matrix[i][j]);
+        }
+      }
+    }
+    print(this);
+    print('this sum ${this.sum}');
+    print('other sum ${other.sum}');
+    print('max overlap $maxOverlap');
+    print('overlap $overlap');
+    print('-'*50);
+    /// Compute average error by dividing by the number of total entries
+    return overlap / maxOverlap;
   }
 
   @override
