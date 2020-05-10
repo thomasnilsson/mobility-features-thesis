@@ -12,5 +12,5 @@ import 'package:path_provider/path_provider.dart';
 part 'mobility_functions.dart';
 part 'mobility_domain.dart';
 part 'mobility_preprocessing.dart';
-part 'mobility_feature_extraction.dart';
+part 'features.dart';
 part 'dataset.dart';

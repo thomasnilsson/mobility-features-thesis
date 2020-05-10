@@ -43,7 +43,7 @@ class _DiaryPageState extends State<DiaryPage> {
   String _placesAnswer() {
     String val = _answers['places'];
     if (val != null) {
-      return '$val places';
+      return val == '1'  ? '$val place' : '$val places';
     }
     return _defaultAnswer;
   }
@@ -51,7 +51,7 @@ class _DiaryPageState extends State<DiaryPage> {
   String _homeAnswer() {
     String val = _answers['home'];
     if (val != null) {
-      return '$val hours';
+      return val == '1'  ? '$val hour' : '$val hours';
     }
     return _defaultAnswer;
   }
@@ -99,13 +99,13 @@ class _DiaryPageState extends State<DiaryPage> {
   void placePicker(BuildContext context) {
     new Picker(
         adapter: NumberPickerAdapter(data: [
-          NumberPickerColumn(begin: 0, end: 10),
+          NumberPickerColumn(begin: 1, end: 30),
         ]),
         hideHeader: true,
         title: new Text("Select an answer"),
         onConfirm: (Picker picker, List value) {
           setState(() {
-            _answers['places'] = value.first.toString();
+            _answers['places'] = (value.first + 1).toString();
             checkAllAnswers();
           });
         }).showDialog(context);
@@ -132,7 +132,7 @@ class _DiaryPageState extends State<DiaryPage> {
 
   Widget questionPlaces() {
     return paddedContainer(Column(children: <Widget>[
-      Text('How many unique places did you stay at today?', style: mediumText),
+      Text('How many unique places (including home) did you stay at today?', style: mediumText),
       Text(_placesAnswer(), style: bigText),
       FlatButton(
         color: Colors.blue,

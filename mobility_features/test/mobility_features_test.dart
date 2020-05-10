@@ -47,24 +47,24 @@ void main() async {
 
     print('Stops found:');
     print('*' * 50);
-    printList(f.stops);
+    printList(f.stopsForPeriod);
 
     print('Places found:');
     print('*' * 50);
-    printList(f.places);
+    printList(f.placesForPeriod);
 
     print('Moves found:');
     print('*' * 50);
-    printList(f.moves);
+    printList(f.movesForPeriod);
 
     print('Features:');
     print('*' * 50);
 
-    print('Number of Clusters: ${f.numberOfClusters}');
-    print('Entropy: ${f.entropy}');
-    print('Normalized Entropy: ${f.normalizedEntropy}');
-    print('Total Distance (meters): ${f.totalDistance}');
-    print('Homestay (%): ${f.homeStay}');
+    print('Number of Clusters: ${f.numberOfClustersAggregate}');
+    print('Entropy: ${f.entropyAggregate}');
+    print('Normalized Entropy: ${f.normalizedEntropyAggregate}');
+    print('Total Distance (meters): ${f.totalDistanceAggregate}');
+    print('Homestay (%): ${f.homeStayAggregate}');
     print('-' * 50);
 
     print('Daily Number of Clusters: ${f.numberOfClustersDaily}');
@@ -424,7 +424,12 @@ void main() async {
       Features features =
           Features(today, stopsAll, placesAll, movesAll);
 
-      print("Routine Overlap: ${features.routineOverlapDaily}");
+      print("No. stops: ${features.stopsDaily.length}");
+      print("No. moves: ${features.movesDaily.length}");
+      print("No. places: ${features.placesForPeriod.length}");
+      print("Routine index daily: ${features.routineIndexDaily}");
+      print(features.hourMatrixDaily);
+      print('-'*40);
     }
   });
 
@@ -455,7 +460,8 @@ void main() async {
       places = preprocessor.findPlaces(stops);
 
       Features features = Features(today, stops, places, moves);
-      features.printOverview();
+      JsonEncoder encoder = new JsonEncoder.withIndent('  ');
+      print(encoder.convert(features.toJson()));
     }
 
     printList(stops);

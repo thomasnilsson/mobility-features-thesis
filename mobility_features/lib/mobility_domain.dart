@@ -2,6 +2,8 @@ part of mobility_features_lib;
 
 const int HOURS_IN_A_DAY = 24;
 
+/// Abstract class to enforce functions
+/// to serialize and deserialize an object
 abstract class Serializable {
   Map<String, dynamic> toJson();
 
@@ -380,12 +382,6 @@ class HourMatrix {
         }
       }
     }
-    print(this);
-    print('this sum ${this.sum}');
-    print('other sum ${other.sum}');
-    print('max overlap $maxOverlap');
-    print('overlap $overlap');
-    print('-'*50);
     /// Compute average error by dividing by the number of total entries
     return overlap / maxOverlap;
   }
