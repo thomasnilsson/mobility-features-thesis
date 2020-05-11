@@ -65,7 +65,16 @@ class DataPreprocessor {
     /// Filter out stops which are shorter than the min. duration
     stops = stops.where((s) => (s.duration >= stopDuration)).toList();
 
-    return stops;
+    /// Add additional boundary stops, this is necessary to calculate moves.
+    Stop first = Stop.fromPoints([data.first]);
+    List<Stop> allStops = [first] + stops;
+
+    if (data.first != data.last) {
+      Stop last = Stop.fromPoints([data.last]);
+      allStops.add(last);
+    }
+
+    return allStops;
   }
 
   /// Finds the places by clustering stops with the DBSCAN algorithm
@@ -116,16 +125,6 @@ class DataPreprocessor {
       data = pointsToday(data);
     }
     List<Move> moves = [];
-
-    List<SingleLocationPoint> pointsBeforeFirstPlace =
-        data.where((d) => d.datetime.leq(stops.first.arrival)).toList();
-
-    Stop firstStop = Stop.fromPoints([data.first]);
-
-    Move firstMove =
-        Move.fromPoints(firstStop, stops.first, pointsBeforeFirstPlace);
-
-    moves.add(firstMove);
 
     /// Create moves from stops
     for (int i = 0; i < stops.length - 1; i++) {

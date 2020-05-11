@@ -17,7 +17,8 @@ class MobilityContext {
 
   /// The routine index is calculated from another class since it
   /// needs multiple MobilityContexts to be computed.
-  double routineIndex = -1.0;
+  /// This means the field is semi-public and will be set from this class.
+  double _routineIndex = -1.0;
 
   /// Constructor
   MobilityContext(this._date, this._stops, this._allPlaces, this._moves);
@@ -87,6 +88,10 @@ class MobilityContext {
     return _distanceTravelled;
   }
 
+  /// Routine index, calculation takes place in the
+  /// MobilityContextAggregated-class.
+  double get routineIndex => _routineIndex;
+
   /// Private number of places calculation
   int _calculateNumberOfPlaces() {
     return places.length;
@@ -94,11 +99,14 @@ class MobilityContext {
 
   /// Private home stay calculation
   double _calculateHomeStay() {
-    /// Total time elapsed today since midnight
-    int totalTime = DateTime.now().millisecondsSinceEpoch -
-        DateTime.now().midnight.millisecondsSinceEpoch;
+    // Latest known sample time
+    DateTime latestTime = _stops.last.departure;
 
-    /// Find todays home id, if no home exists today return -1.0
+    // Total time elapsed from midnight until the last stop
+    int totalTime = latestTime.millisecondsSinceEpoch -
+        latestTime.midnight.millisecondsSinceEpoch;
+
+    // Find todays home id, if no home exists today return -1.0
     HourMatrix hm = HourMatrix.fromStops(_stops, numberOfPlaces);
     if (hm.homePlaceId == -1) {
       return -1.0;
@@ -248,8 +256,9 @@ class MobilityContextAggregated {
     double overlap = 0.0;
 
     for (MobilityContext c in _contexts) {
-      c.routineIndex = _computeRoutineOverlapForContext(c);
-      overlap += c.routineIndex;
+      /// Set the routine index
+      c._routineIndex = _computeRoutineOverlapForContext(c);
+      overlap += c._routineIndex;
     }
 
     return overlap / _contexts.length;

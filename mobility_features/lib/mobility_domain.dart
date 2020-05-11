@@ -228,7 +228,7 @@ class Place {
 
   @override
   String toString() {
-    return 'Place ID: $_id, at ${_centroid.toString()} ($duration)';
+    return 'Place ID: $_id, at ${centroid.toString()} ($duration)';
   }
 }
 

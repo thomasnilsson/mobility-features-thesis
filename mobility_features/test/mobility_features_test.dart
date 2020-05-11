@@ -22,6 +22,20 @@ void main() async {
     DateTime(2020, 02, 17),
   ];
 
+  DateTime january01 = DateTime(2020, 01, 01);
+
+  // Poppelgade 7, home
+  Location loc0 = Location(55.692035, 12.558575);
+
+  // Falkoner Alle
+  Location loc1 = Location(55.685329, 12.538601);
+
+  // Dronning Louises Bro
+  Location loc2 = Location(55.686723, 12.563769);
+
+  // Assistentens Kirkegaard
+  Location loc3 = Location(55.690862, 12.549545);
+
   test('Datetime extension', () async {
     DateTime d1 = DateTime.parse('2020-02-12 09:30:00.000');
     DateTime d2 = DateTime.parse('2020-02-12 13:31:00.400');
@@ -164,8 +178,7 @@ void main() async {
       List<Move> movesOnDate = dp.findMoves(dataOnDate, stopsOnDate);
       moves.addAll(movesOnDate);
 
-      Features features =
-          Features(date, stops, places, moves);
+      Features features = Features(date, stops, places, moves);
       print('$date | RoutineIndex: ${features.routineIndexDaily}');
     }
   });
@@ -328,7 +341,6 @@ void main() async {
   });
 
   test('Simulate everything', () async {
-
     Serializer<SingleLocationPoint> dataSerializer =
         Serializer(new File('$testDataDir/points.json'));
     Serializer<Stop> stopSerializer =
@@ -421,15 +433,14 @@ void main() async {
       moveSerializer.save(movesAll);
 
       /// Calculate features
-      Features features =
-          Features(today, stopsAll, placesAll, movesAll);
+      Features features = Features(today, stopsAll, placesAll, movesAll);
 
       print("No. stops: ${features.stopsDaily.length}");
       print("No. moves: ${features.movesDaily.length}");
       print("No. places: ${features.placesForPeriod.length}");
       print("Routine index daily: ${features.routineIndexDaily}");
       print(features.hourMatrixDaily);
-      print('-'*40);
+      print('-' * 40);
     }
   });
 
@@ -440,7 +451,6 @@ void main() async {
         Serializer(new File('$testDataDir/stops-april.json'));
     Serializer<Move> moveSerializer =
         Serializer(new File('$testDataDir/moves-april.json'));
-
 
     List<DateTime> aprilDates = [
       DateTime(2020, 04, 10),
@@ -467,15 +477,14 @@ void main() async {
     printList(stops);
     printList(moves);
     printList(places);
-
   });
 
   test('Simple serialization test', () async {
     Serializer<SingleLocationPoint> serializer =
-    Serializer(new File('$testDataDir/test.json'));
+        Serializer(new File('$testDataDir/test.json'));
 
     SingleLocationPoint p1 =
-    SingleLocationPoint(Location(12.345, 98.765), DateTime(2020, 02, 16));
+        SingleLocationPoint(Location(12.345, 98.765), DateTime(2020, 02, 16));
 
     await serializer.flush();
     await serializer.save([p1, p1, p1]);
@@ -488,8 +497,105 @@ void main() async {
     print(loaded.length);
   });
 
+  test('Single Stop', () {
+    List<SingleLocationPoint> dataset = [
+      // 5 hours spent at home
+      SingleLocationPoint(loc0, january01.add(Duration(hours: 0, minutes: 0))),
+    ];
 
+    DataPreprocessor preprocessor = DataPreprocessor(january01);
+    List<Stop> stops = preprocessor.findStops(dataset);
+    List<Move> moves = preprocessor.findMoves(dataset, stops);
+    List<Place> places = preprocessor.findPlaces(stops);
 
+    printList(dataset);
 
+    printList(stops);
+    printList(moves);
+    printList(places);
 
+    MobilityContext context = MobilityContext(january01, stops, places, moves);
+    print(context.hourMatrix);
+    print('Home stay: ${context.homeStay}');
+
+    Duration timeTracked = Duration(hours: 21);
+    Duration homeTime = stops
+        .where((x) => x.placeId == 0)
+        .map((x) => x.duration)
+        .reduce((a, b) => a + b);
+
+    Duration d = places.first.durationForDate(january01);
+    print(d);
+    print(timeTracked);
+    print(homeTime);
+    print(homeTime.inMilliseconds / timeTracked.inMilliseconds);
+  });
+
+  test('Noerrebro', () {
+    List<SingleLocationPoint> dataset = [
+// 5 hours spent at home
+      SingleLocationPoint(loc0, january01.add(Duration(hours: 0, minutes: 0))),
+      SingleLocationPoint(loc0, january01.add(Duration(hours: 1, minutes: 0))),
+      SingleLocationPoint(loc0, january01.add(Duration(hours: 2, minutes: 0))),
+      SingleLocationPoint(loc0, january01.add(Duration(hours: 3, minutes: 0))),
+      SingleLocationPoint(loc0, january01.add(Duration(hours: 4, minutes: 0))),
+      SingleLocationPoint(loc0, january01.add(Duration(hours: 5, minutes: 0))),
+      SingleLocationPoint(loc0, january01.add(Duration(hours: 6, minutes: 0))),
+
+      SingleLocationPoint(loc1, january01.add(Duration(hours: 8, minutes: 0))),
+      SingleLocationPoint(loc1, january01.add(Duration(hours: 8, minutes: 30))),
+      SingleLocationPoint(loc1, january01.add(Duration(hours: 9, minutes: 0))),
+      SingleLocationPoint(loc1, january01.add(Duration(hours: 9, minutes: 30))),
+
+      SingleLocationPoint(loc2, january01.add(Duration(hours: 10, minutes: 0))),
+      SingleLocationPoint(
+          loc2, january01.add(Duration(hours: 10, minutes: 30))),
+      SingleLocationPoint(loc2, january01.add(Duration(hours: 11, minutes: 0))),
+      SingleLocationPoint(
+          loc2, january01.add(Duration(hours: 11, minutes: 30))),
+
+      /// 1 hour spent at home
+      SingleLocationPoint(loc0, january01.add(Duration(hours: 15, minutes: 0))),
+      SingleLocationPoint(
+          loc0, january01.add(Duration(hours: 15, minutes: 30))),
+      SingleLocationPoint(loc0, january01.add(Duration(hours: 16, minutes: 0))),
+
+      SingleLocationPoint(loc3, january01.add(Duration(hours: 17, minutes: 0))),
+      SingleLocationPoint(
+          loc3, january01.add(Duration(hours: 17, minutes: 30))),
+      SingleLocationPoint(loc3, january01.add(Duration(hours: 18, minutes: 0))),
+
+      // 1 hour spent at home
+      SingleLocationPoint(loc0, january01.add(Duration(hours: 20, minutes: 0))),
+      SingleLocationPoint(
+          loc0, january01.add(Duration(hours: 20, minutes: 30))),
+      SingleLocationPoint(loc0, january01.add(Duration(hours: 21, minutes: 0))),
+    ];
+
+    DataPreprocessor preprocessor = DataPreprocessor(january01);
+    List<Stop> stops = preprocessor.findStops(dataset);
+    List<Move> moves = preprocessor.findMoves(dataset, stops);
+    List<Place> places = preprocessor.findPlaces(stops);
+
+    printList(dataset);
+
+    printList(stops);
+    printList(moves);
+    printList(places);
+
+    MobilityContext context = MobilityContext(january01, stops, places, moves);
+    print(context.hourMatrix);
+
+    int timeTracked = Duration(hours: 21, minutes: 0).inMilliseconds;
+    int homeTime = stops
+        .where((x) => x.placeId == 0)
+        .map((x) => x.duration)
+        .reduce((a, b) => a + b)
+        .inMilliseconds;
+
+    expect(context.homeStay, homeTime / timeTracked);
+    expect(context.routineIndex, -1.0);
+    expect(context.numberOfPlaces, places.length);
+    expect(context.normalizedEntropy, places.length);
+  });
 }
