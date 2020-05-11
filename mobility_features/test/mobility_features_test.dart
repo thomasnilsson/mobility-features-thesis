@@ -22,7 +22,7 @@ void main() async {
     DateTime(2020, 02, 17),
   ];
 
-  DateTime january01 = DateTime(2020, 01, 01);
+  DateTime jan01 = DateTime(2020, 01, 01);
 
   // Poppelgade 7, home
   Location loc0 = Location(55.692035, 12.558575);
@@ -500,10 +500,10 @@ void main() async {
   test('Single Stop', () {
     List<SingleLocationPoint> dataset = [
       // 5 hours spent at home
-      SingleLocationPoint(loc0, january01.add(Duration(hours: 0, minutes: 0))),
+      SingleLocationPoint(loc0, jan01.add(Duration(hours: 0, minutes: 0))),
     ];
 
-    DataPreprocessor preprocessor = DataPreprocessor(january01);
+    DataPreprocessor preprocessor = DataPreprocessor(jan01);
     List<Stop> stops = preprocessor.findStops(dataset);
     List<Move> moves = preprocessor.findMoves(dataset, stops);
     List<Place> places = preprocessor.findPlaces(stops);
@@ -514,7 +514,7 @@ void main() async {
     printList(moves);
     printList(places);
 
-    MobilityContext context = MobilityContext(january01, stops, places, moves);
+    MobilityContext context = MobilityContext(jan01, stops, places, moves);
     print(context.hourMatrix);
     print('Home stay: ${context.homeStay}');
 
@@ -524,55 +524,38 @@ void main() async {
         .map((x) => x.duration)
         .reduce((a, b) => a + b);
 
-    Duration d = places.first.durationForDate(january01);
+    Duration d = places.first.durationForDate(jan01);
     print(d);
     print(timeTracked);
     print(homeTime);
     print(homeTime.inMilliseconds / timeTracked.inMilliseconds);
   });
 
-  test('Noerrebro', () {
+  test('Noerrebro single day', () {
     List<SingleLocationPoint> dataset = [
-// 5 hours spent at home
-      SingleLocationPoint(loc0, january01.add(Duration(hours: 0, minutes: 0))),
-      SingleLocationPoint(loc0, january01.add(Duration(hours: 1, minutes: 0))),
-      SingleLocationPoint(loc0, january01.add(Duration(hours: 2, minutes: 0))),
-      SingleLocationPoint(loc0, january01.add(Duration(hours: 3, minutes: 0))),
-      SingleLocationPoint(loc0, january01.add(Duration(hours: 4, minutes: 0))),
-      SingleLocationPoint(loc0, january01.add(Duration(hours: 5, minutes: 0))),
-      SingleLocationPoint(loc0, january01.add(Duration(hours: 6, minutes: 0))),
+      // 5 hours spent at home
+      SingleLocationPoint(loc0, jan01.add(Duration(hours: 0, minutes: 0))),
+      SingleLocationPoint(loc0, jan01.add(Duration(hours: 6, minutes: 0))),
 
-      SingleLocationPoint(loc1, january01.add(Duration(hours: 8, minutes: 0))),
-      SingleLocationPoint(loc1, january01.add(Duration(hours: 8, minutes: 30))),
-      SingleLocationPoint(loc1, january01.add(Duration(hours: 9, minutes: 0))),
-      SingleLocationPoint(loc1, january01.add(Duration(hours: 9, minutes: 30))),
+      SingleLocationPoint(loc1, jan01.add(Duration(hours: 8, minutes: 0))),
+      SingleLocationPoint(loc1, jan01.add(Duration(hours: 9, minutes: 30))),
 
-      SingleLocationPoint(loc2, january01.add(Duration(hours: 10, minutes: 0))),
-      SingleLocationPoint(
-          loc2, january01.add(Duration(hours: 10, minutes: 30))),
-      SingleLocationPoint(loc2, january01.add(Duration(hours: 11, minutes: 0))),
-      SingleLocationPoint(
-          loc2, january01.add(Duration(hours: 11, minutes: 30))),
+      SingleLocationPoint(loc2, jan01.add(Duration(hours: 10, minutes: 0))),
+      SingleLocationPoint(loc2, jan01.add(Duration(hours: 11, minutes: 30))),
 
       /// 1 hour spent at home
-      SingleLocationPoint(loc0, january01.add(Duration(hours: 15, minutes: 0))),
-      SingleLocationPoint(
-          loc0, january01.add(Duration(hours: 15, minutes: 30))),
-      SingleLocationPoint(loc0, january01.add(Duration(hours: 16, minutes: 0))),
+      SingleLocationPoint(loc0, jan01.add(Duration(hours: 15, minutes: 0))),
+      SingleLocationPoint(loc0, jan01.add(Duration(hours: 16, minutes: 0))),
 
-      SingleLocationPoint(loc3, january01.add(Duration(hours: 17, minutes: 0))),
-      SingleLocationPoint(
-          loc3, january01.add(Duration(hours: 17, minutes: 30))),
-      SingleLocationPoint(loc3, january01.add(Duration(hours: 18, minutes: 0))),
+      SingleLocationPoint(loc3, jan01.add(Duration(hours: 17, minutes: 0))),
+      SingleLocationPoint(loc3, jan01.add(Duration(hours: 18, minutes: 0))),
 
       // 1 hour spent at home
-      SingleLocationPoint(loc0, january01.add(Duration(hours: 20, minutes: 0))),
-      SingleLocationPoint(
-          loc0, january01.add(Duration(hours: 20, minutes: 30))),
-      SingleLocationPoint(loc0, january01.add(Duration(hours: 21, minutes: 0))),
+      SingleLocationPoint(loc0, jan01.add(Duration(hours: 20, minutes: 0))),
+      SingleLocationPoint(loc0, jan01.add(Duration(hours: 21, minutes: 0))),
     ];
 
-    DataPreprocessor preprocessor = DataPreprocessor(january01);
+    DataPreprocessor preprocessor = DataPreprocessor(jan01);
     List<Stop> stops = preprocessor.findStops(dataset);
     List<Move> moves = preprocessor.findMoves(dataset, stops);
     List<Place> places = preprocessor.findPlaces(stops);
@@ -583,7 +566,62 @@ void main() async {
     printList(moves);
     printList(places);
 
-    MobilityContext context = MobilityContext(january01, stops, places, moves);
+    MobilityContext context = MobilityContext(jan01, stops, places, moves);
+    print(context.hourMatrix);
+
+    int timeTracked = stops.last.departure.millisecondsSinceEpoch -
+        jan01.millisecondsSinceEpoch;
+    int homeTime = stops
+        .where((x) => x.placeId == 0)
+        .map((x) => x.duration)
+        .reduce((a, b) => a + b)
+        .inMilliseconds;
+
+    expect(context.homeStay, homeTime / timeTracked);
+    expect(context.routineIndex, -1.0);
+    expect(context.numberOfPlaces, places.length);
+  });
+
+  test('Noerrebro several days', () {
+    List<SingleLocationPoint> dataset = [];
+
+    for (int i = 0; i < 5; i++) {
+      dataset.addAll([
+        // 5 hours spent at home
+        SingleLocationPoint(loc0, jan01.add(Duration(hours: 0, minutes: 0))),
+        SingleLocationPoint(loc0, jan01.add(Duration(hours: 6, minutes: 0))),
+
+        SingleLocationPoint(loc1, jan01.add(Duration(hours: 8, minutes: 0))),
+        SingleLocationPoint(loc1, jan01.add(Duration(hours: 9, minutes: 30))),
+
+        SingleLocationPoint(loc2, jan01.add(Duration(hours: 10, minutes: 0))),
+        SingleLocationPoint(loc2, jan01.add(Duration(hours: 11, minutes: 30))),
+
+        /// 1 hour spent at home
+        SingleLocationPoint(loc0, jan01.add(Duration(hours: 15, minutes: 0))),
+        SingleLocationPoint(loc0, jan01.add(Duration(hours: 16, minutes: 0))),
+
+        SingleLocationPoint(loc3, jan01.add(Duration(hours: 17, minutes: 0))),
+        SingleLocationPoint(loc3, jan01.add(Duration(hours: 18, minutes: 0))),
+
+        // 1 hour spent at home
+        SingleLocationPoint(loc0, jan01.add(Duration(hours: 20, minutes: 0))),
+        SingleLocationPoint(loc0, jan01.add(Duration(hours: 21, minutes: 0))),
+      ]);
+    }
+
+    DataPreprocessor preprocessor = DataPreprocessor(jan01);
+    List<Stop> stops = preprocessor.findStops(dataset);
+    List<Move> moves = preprocessor.findMoves(dataset, stops);
+    List<Place> places = preprocessor.findPlaces(stops);
+
+    printList(dataset);
+
+    printList(stops);
+    printList(moves);
+    printList(places);
+
+    MobilityContext context = MobilityContext(jan01, stops, places, moves);
     print(context.hourMatrix);
 
     int timeTracked = Duration(hours: 21, minutes: 0).inMilliseconds;

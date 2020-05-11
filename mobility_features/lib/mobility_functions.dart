@@ -36,10 +36,6 @@ class Distance {
 
     return distance;
   }
-
-  static bool isWithin(Location a, Location b, double d) {
-    return fromLocation(a, b) <= d;
-  }
 }
 
 Iterable<int> range(int low, int high) sync* {

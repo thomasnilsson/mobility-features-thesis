@@ -126,13 +126,7 @@ class Stop implements Serializable {
       {int placeId = -1}) {
     /// Calculate center
     Location center = Cluster.fromPoints(points).centroid;
-
-    /// Find min/max time
-    DateTime arr = DateTime.fromMillisecondsSinceEpoch(
-        points.map((d) => d._datetime.millisecondsSinceEpoch).reduce(min));
-    DateTime dep = DateTime.fromMillisecondsSinceEpoch(
-        points.map((d) => d._datetime.millisecondsSinceEpoch).reduce(max));
-    return Stop(center, arr, dep, placeId: placeId);
+    return Stop(center, points.first.datetime, points.last.datetime, placeId: placeId);
   }
 
   Location get centroid => _centroid;
