@@ -14,3 +14,5 @@ part 'mobility_domain.dart';
 part 'mobility_preprocessing.dart';
 part 'features.dart';
 part 'dataset.dart';
+part 'mobility_context.dart';
+part 'serializer.dart';

@@ -50,8 +50,7 @@ class SingleLocationPoint implements Serializable {
 
   DateTime get datetime => _datetime;
 
-  Map<String, dynamic> toJson() =>
-      {
+  Map<String, dynamic> toJson() => {
         "location": location.toJson(),
         "datetime": json.encode(datetime.millisecondsSinceEpoch)
       };
@@ -81,6 +80,35 @@ class SingleLocationPoint implements Serializable {
   }
 }
 
+class Cluster {
+  List<Location> _locations;
+  Location _centroid;
+
+  Cluster(this._locations);
+
+  factory Cluster.fromPoints(List<SingleLocationPoint> points) {
+    List<Location> locs = points.map((p) => p.location).toList();
+    return Cluster(locs);
+  }
+
+  Location get centroid {
+    if (_centroid == null) {
+      _centroid = _calculateCentroid();
+    }
+    return _centroid;
+  }
+
+  List<Location> get locations => _locations;
+
+  Location _calculateCentroid() {
+    double lat = Stats.fromData(locations.map((d) => (d.latitude)).toList())
+        .median as double;
+    double lon = Stats.fromData(locations.map((d) => (d.longitude)).toList())
+        .median as double;
+    return Location(lat, lon);
+  }
+}
+
 /// A [Stop] represents a cluster of [SingleLocationPoint] which were 'close' to eachother
 /// wrt. to Time and 2D space, in a period of little- to no movement.
 /// A [Stop] has an assigned [placeId] which links it to a [Place].
@@ -94,15 +122,16 @@ class Stop implements Serializable {
   Stop(this._centroid, this._arrival, this._departure, {this.placeId = -1});
 
   /// Construct stop from point cloud
-  factory Stop.fromPoints(List<SingleLocationPoint> p, {int placeId = -1}) {
+  factory Stop.fromPoints(List<SingleLocationPoint> points,
+      {int placeId = -1}) {
     /// Calculate center
-    Location center = calculateCentroid(p.locations);
+    Location center = Cluster.fromPoints(points).centroid;
 
     /// Find min/max time
     DateTime arr = DateTime.fromMillisecondsSinceEpoch(
-        p.map((d) => d._datetime.millisecondsSinceEpoch).reduce(min));
+        points.map((d) => d._datetime.millisecondsSinceEpoch).reduce(min));
     DateTime dep = DateTime.fromMillisecondsSinceEpoch(
-        p.map((d) => d._datetime.millisecondsSinceEpoch).reduce(max));
+        points.map((d) => d._datetime.millisecondsSinceEpoch).reduce(max));
     return Stop(center, arr, dep, placeId: placeId);
   }
 
@@ -145,13 +174,11 @@ class Stop implements Serializable {
     return hours;
   }
 
-  Duration get duration =>
-      Duration(
-          milliseconds:
+  Duration get duration => Duration(
+      milliseconds:
           departure.millisecondsSinceEpoch - arrival.millisecondsSinceEpoch);
 
-  Map<String, dynamic> toJson() =>
-      {
+  Map<String, dynamic> toJson() => {
         "centroid": centroid.toJson(),
         "place_id": placeId,
         "arrival": arrival.millisecondsSinceEpoch,
@@ -168,8 +195,7 @@ class Stop implements Serializable {
 
   @override
   String toString() {
-    return 'Stop at place $placeId,  (${_centroid
-        .toString()}) [$arrival - $departure] ($duration) ';
+    return 'Stop at place $placeId,  (${_centroid.toString()}) [$arrival - $departure] ($duration) ';
   }
 }
 
@@ -180,24 +206,23 @@ class Place {
   List<Stop> _stops;
   Location _centroid;
 
-  Place(this._id, this._stops) {
-    _centroid = calculateCentroid(_stops.map((s) => s._centroid).toList());
-  }
+  Place(this._id, this._stops);
 
   Duration get duration =>
       _stops.map((s) => s.duration).reduce((a, b) => a + b);
 
-  Duration durationForDate(DateTime d) =>
-      _stops
-          .where((s) => s.arrival.midnight == d)
-          .map((s) => s.duration)
-          .fold(Duration(), (a, b) => a + b);
+  Duration durationForDate(DateTime d) => _stops
+      .where((s) => s.arrival.midnight == d)
+      .map((s) => s.duration)
+      .fold(Duration(), (a, b) => a + b);
 
-  // Init accumulator to zero (empty duration),
-  // otherwise reduce/fold will fail if
-  // a place has not been visited on the specified date
-
-  Location get centroid => _centroid;
+  Location get centroid {
+    if (_centroid == null) {
+      List<Location> centroids = _stops.map((s) => s.centroid).toList();
+      _centroid = Cluster(centroids).centroid;
+    }
+    return _centroid;
+  }
 
   int get id => _id;
 
@@ -229,10 +254,9 @@ class Move implements Serializable {
   double get distance => _distance;
 
   /// The duration of the move in milliseconds
-  Duration get duration =>
-      Duration(
-          milliseconds: _stopTo.arrival.millisecondsSinceEpoch -
-              _stopFrom.departure.millisecondsSinceEpoch);
+  Duration get duration => Duration(
+      milliseconds: _stopTo.arrival.millisecondsSinceEpoch -
+          _stopFrom.departure.millisecondsSinceEpoch);
 
   /// The average speed when moving between the two places (m/s)
   double get meanSpeed => distance / duration.inSeconds.toDouble();
@@ -245,8 +269,7 @@ class Move implements Serializable {
 
   Stop get stopTo => _stopTo;
 
-  Map<String, dynamic> toJson() =>
-      {
+  Map<String, dynamic> toJson() => {
         "stop_from": _stopFrom.toJson(),
         "stop_to": _stopTo.toJson(),
         "distance": _distance
@@ -313,8 +336,7 @@ class HourMatrix {
 
   /// Features
   int get homePlaceId {
-    int startHour = 0,
-        endHour = 6;
+    int startHour = 0, endHour = 6;
 
     List<double> hourSpentAtPlace = List.filled(_numberOfPlaces, 0.0);
 
@@ -339,7 +361,6 @@ class HourMatrix {
     }
     return s;
   }
-
 
   /// Calculates the error between two matrices
   double computeError(HourMatrix other) {
@@ -369,6 +390,7 @@ class HourMatrix {
     double maxOverlap = min(this.sum, other.sum);
 
     if (maxOverlap == 0.0) return -1.0;
+
     /// Cumulative error between the two matrices
     double overlap = 0.0;
     //
@@ -382,6 +404,7 @@ class HourMatrix {
         }
       }
     }
+
     /// Compute average error by dividing by the number of total entries
     return overlap / maxOverlap;
   }

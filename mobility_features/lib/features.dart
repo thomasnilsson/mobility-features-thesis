@@ -2,7 +2,6 @@ part of mobility_features_lib;
 
 const int MILLISECONDS_IN_A_DAY = 24 * 60 * 60 * 1000;
 
-
 class Features {
   List<Stop> _stopsForPeriod, _stopsDaily;
   List<Place> _placesForPeriod, _placesDaily;
@@ -196,7 +195,8 @@ class Features {
   }
 
   /// Routine index (overlap) calculation
-  double _computeRoutineOverlap(List<DateTime> days, List<DateTime> historical) {
+  double _computeRoutineOverlap(
+      List<DateTime> days, List<DateTime> historical) {
     double avgOverlap = 0.0;
 
     if (historical.isEmpty) return -1.0;

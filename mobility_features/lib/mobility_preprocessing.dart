@@ -30,6 +30,7 @@ class DataPreprocessor {
   /// Find the stops in a sequence of gps data points
   List<Stop> findStops(List<SingleLocationPoint> data, {bool filter: true}) {
     if (data.isEmpty) return [];
+
     /// Filter out data not on the specified date
     if (filter) {
       data = pointsToday(data);
@@ -40,25 +41,25 @@ class DataPreprocessor {
 
     /// Go through all the data points
     /// Each iteration looking at a subset of the data set
-    for (int i = 0; i < n; i++) {
-      int j = i + 1;
-      List<SingleLocationPoint> cluster = data.sublist(i, j);
-      Location centroid = calculateCentroid(cluster.locations);
+    for (int start = 0; start < n; start++) {
+      int end = start + 1;
+      List<SingleLocationPoint> subset = data.sublist(start, end);
+      Location centroid = Cluster.fromPoints(subset).centroid;
 
       /// Expand cluster until either all data points have been considered,
       /// or the current data point lies outside the radius.
-      while (
-          j < n && Distance.isWithin(data[j].location, centroid, stopRadius)) {
-        j += 1;
-        cluster = data.sublist(i, j);
-        centroid = calculateCentroid(cluster.locations);
+      while (end < n &&
+          Distance.isWithin(data[end].location, centroid, stopRadius)) {
+        end += 1;
+        subset = data.sublist(start, end);
+        centroid = Cluster.fromPoints(subset).centroid;
       }
-      Stop s = Stop.fromPoints(cluster);
+      Stop s = Stop.fromPoints(subset);
       stops.add(s);
 
-      /// Update i, such that we no longer look at
+      /// Update the start index, such that we no longer look at
       /// the previously considered data points
-      i = j;
+      start = end;
     }
 
     /// Filter out stops which are shorter than the min. duration
@@ -108,8 +109,8 @@ class DataPreprocessor {
 
   List<Move> findMoves(List<SingleLocationPoint> data, List<Stop> stops,
       {bool filter: true}) {
-
     if (stops.isEmpty) return [];
+
     /// Filter out data not on the specified date
     if (filter) {
       data = pointsToday(data);
@@ -121,7 +122,8 @@ class DataPreprocessor {
 
     Stop firstStop = Stop.fromPoints([data.first]);
 
-    Move firstMove = Move.fromPoints(firstStop, stops.first, pointsBeforeFirstPlace);
+    Move firstMove =
+        Move.fromPoints(firstStop, stops.first, pointsBeforeFirstPlace);
 
     moves.add(firstMove);
 

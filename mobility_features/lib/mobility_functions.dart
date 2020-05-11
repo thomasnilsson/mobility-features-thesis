@@ -47,17 +47,6 @@ Iterable<int> range(int low, int high) sync* {
     yield i;
   }
 }
-
-/// Calculate centroid of a gps point cloud
-Location calculateCentroid(List<Location> data) {
-  double medianLat =
-      Stats.fromData(data.map((d) => (d._latitude)).toList()).median as double;
-  double medianLon =
-      Stats.fromData(data.map((d) => (d._longitude)).toList()).median as double;
-
-  return Location(medianLat, medianLon);
-}
-
 extension CompareDates on DateTime {
   bool geq(DateTime other) {
     return this.isAfter(other) || this.isAtSameMomentAs(other);
@@ -69,6 +58,12 @@ extension CompareDates on DateTime {
 
   DateTime get midnight {
     return DateTime(this.year, this.month, this.day);
+  }
+}
+
+extension AverageIterable on Iterable {
+  double get mean {
+    return this.fold(0, (a, b) => a + b) / this.length.toDouble();
   }
 }
 
@@ -96,95 +91,6 @@ int argmaxInt(List<int> list) {
     }
   }
   return i;
-}
-
-extension LocationList on List<SingleLocationPoint> {
-  List<Location> get locations =>
-      this.map((SingleLocationPoint d) => d.location).toList();
-}
-
-class Serializer<E> {
-  /// Provide a file reference in order to serialize objects.
-  File file;
-  int dayWindow;
-  String delimiter = '\n';
-  bool debug;
-
-  Serializer(this.file, {this.debug = false}) {
-    _debugPrint('Initializing Serializer for ${file.path}');
-    bool exists = file.existsSync();
-    if (!exists) {
-      flush();
-    }
-  }
-
-  /// Deletes the content of the file
-  Future<void> flush() async {
-    await file.writeAsString('', mode: FileMode.write);
-    _debugPrint('Flushed file!');
-  }
-
-  /// Writes a list of [Serializable] to the file given in the constructor.
-  Future<void> save(List<Serializable> elements) async {
-    _debugPrint('Saving to file...');
-    String jsonString = "";
-    for (Serializable e in elements) {
-      jsonString += json.encode(e.toJson()) + delimiter;
-    }
-    await file.writeAsString(jsonString, mode: FileMode.writeOnlyAppend);
-  }
-
-  /// Reads contents of the file in the constructor,
-  /// and maps it to a list of a specific [Serializable] type.
-  Future<List<Serializable>> load() async {
-    /// Read file content as one big string
-    String content = await file.readAsString();
-
-    /// Split content into lines by delimiting them
-    List<String> lines = content.split(delimiter);
-
-    /// Remove last entry since it is always empty
-    /// Then convert each line to JSON, and then to Dart Map<T> objects
-    Iterable<Map<String, dynamic>> maps = lines
-        .sublist(0, lines.length - 1)
-        .map((e) => json.decode(e))
-        .map((e) => Map<String, dynamic>.from(e));
-
-    switch (E) {
-      case Move:
-
-        /// Filter out moves which are not recent
-        return maps
-            .map((x) => Move.fromJson(x))
-//            .where((m) => _isRecent(m.stopFrom.arrival))
-            .toList();
-      case Stop:
-
-        /// Filter out stops which are not recent
-        return maps
-            .map((x) => Stop.fromJson(x))
-//            .where((s) => _isRecent(s.arrival))
-            .toList();
-      default:
-
-        /// Filter out data points not from today
-        return maps
-            .map((x) => SingleLocationPoint.fromJson(x))
-//            .where((p) => _isToday(p.datetime))
-            .toList();
-    }
-  }
-
-  void _debugPrint(String s) {
-    if (debug) print('Serializer<$E> debug: $s');
-  }
-
-//  /// Decide whether or not a date is recent, i.e. within the day window (Default 28 days)
-//  bool _isToday(DateTime dateTime) => date.midnight == dateTime.midnight;
-//
-//  /// Decide whether or not a date is recent, i.e. within the day window (Default 28 days)
-//  bool _isRecent(DateTime dateTime) =>
-//      date.midnight.subtract(Duration(days: dayWindow)).leq(dateTime.midnight);
 }
 
 void printMatrix(List<List> m) {
