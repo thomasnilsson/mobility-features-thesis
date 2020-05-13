@@ -583,57 +583,41 @@ void main() async {
   });
 
   test('Noerrebro several days', () {
-    List<SingleLocationPoint> dataset = [];
+    List<Stop> stops = [];
+    List<Move> moves = [];
+    List<MobilityContext> contexts = [];
 
     for (int i = 0; i < 5; i++) {
-      dataset.addAll([
+      DateTime date = jan01.add(Duration(days: i));
+
+      /// Todays data
+      List<SingleLocationPoint> dataset = [
         // 5 hours spent at home
-        SingleLocationPoint(loc0, jan01.add(Duration(hours: 0, minutes: 0))),
-        SingleLocationPoint(loc0, jan01.add(Duration(hours: 6, minutes: 0))),
+        SingleLocationPoint(loc0, date.add(Duration(hours: 0, minutes: 0))),
+        SingleLocationPoint(loc0, date.add(Duration(hours: 6, minutes: 0))),
 
-        SingleLocationPoint(loc1, jan01.add(Duration(hours: 8, minutes: 0))),
-        SingleLocationPoint(loc1, jan01.add(Duration(hours: 9, minutes: 30))),
+        SingleLocationPoint(loc1, date.add(Duration(hours: 8, minutes: 0))),
+        SingleLocationPoint(loc1, date.add(Duration(hours: 9, minutes: 30))),
+      ];
 
-        SingleLocationPoint(loc2, jan01.add(Duration(hours: 10, minutes: 0))),
-        SingleLocationPoint(loc2, jan01.add(Duration(hours: 11, minutes: 30))),
+      printList(dataset);
 
-        /// 1 hour spent at home
-        SingleLocationPoint(loc0, jan01.add(Duration(hours: 15, minutes: 0))),
-        SingleLocationPoint(loc0, jan01.add(Duration(hours: 16, minutes: 0))),
+      DataPreprocessor preprocessor = DataPreprocessor(date);
+      List<Stop> stopsToday = preprocessor.findStops(dataset);
+      stops += stopsToday;
+      moves += preprocessor.findMoves(dataset, stopsToday);
+      List<Place> places = preprocessor.findPlaces(stops);
 
-        SingleLocationPoint(loc3, jan01.add(Duration(hours: 17, minutes: 0))),
-        SingleLocationPoint(loc3, jan01.add(Duration(hours: 18, minutes: 0))),
+      printList(stops);
+      printList(moves);
+      printList(places);
 
-        // 1 hour spent at home
-        SingleLocationPoint(loc0, jan01.add(Duration(hours: 20, minutes: 0))),
-        SingleLocationPoint(loc0, jan01.add(Duration(hours: 21, minutes: 0))),
-      ]);
+      MobilityContext context = MobilityContext(jan01, stops, places, moves);
+      MobilityContextAggregated mca = MobilityContextAggregated(contexts);
+      print(
+          '[Date ${date.year}/${date.month}/${date.day}] Routine index agg ${mca.routineIndexAverage}');
+      print(
+          '[Date ${date.year}/${date.month}/${date.day}] Routine index     ${context.routineIndex}');
     }
-
-    DataPreprocessor preprocessor = DataPreprocessor(jan01);
-    List<Stop> stops = preprocessor.findStops(dataset);
-    List<Move> moves = preprocessor.findMoves(dataset, stops);
-    List<Place> places = preprocessor.findPlaces(stops);
-
-    printList(dataset);
-
-    printList(stops);
-    printList(moves);
-    printList(places);
-
-    MobilityContext context = MobilityContext(jan01, stops, places, moves);
-    print(context.hourMatrix);
-
-    int timeTracked = Duration(hours: 21, minutes: 0).inMilliseconds;
-    int homeTime = stops
-        .where((x) => x.placeId == 0)
-        .map((x) => x.duration)
-        .reduce((a, b) => a + b)
-        .inMilliseconds;
-
-    expect(context.homeStay, homeTime / timeTracked);
-    expect(context.routineIndex, -1.0);
-    expect(context.numberOfPlaces, places.length);
-    expect(context.normalizedEntropy, places.length);
   });
 }

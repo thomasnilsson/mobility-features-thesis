@@ -253,6 +253,8 @@ class MobilityContextAggregated {
 
   /// Routine index (overlap) calculation
   double _computeRoutineOverlapAverage() {
+    if (_contexts.isEmpty) return -1.0;
+
     double overlap = 0.0;
 
     for (MobilityContext c in _contexts) {
