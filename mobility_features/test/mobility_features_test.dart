@@ -612,12 +612,22 @@ void main() async {
       printList(moves);
       printList(places);
 
-      MobilityContext context = MobilityContext(jan01, stops, places, moves);
-      MobilityContextAggregated mca = MobilityContextAggregated(contexts);
-      print(
-          '[Date ${date.year}/${date.month}/${date.day}] Routine index agg ${mca.routineIndexAverage}');
-      print(
-          '[Date ${date.year}/${date.month}/${date.day}] Routine index     ${context.routineIndex}');
+      /// Calculate and save context
+      MobilityContext context = MobilityContext(date, stops, places, moves, contexts: contexts);
+      
+      /// Get the routine index
+      double routineIndex = context.routineIndex;
+
+      /// Add this context
+      contexts.add(context);
+
+      /// Check that the routine index is correct
+      if (i == 0) {
+        expect(routineIndex, -1.0);
+      }
+      else {
+        expect(routineIndex, 1.0);
+      }
     }
   });
 }

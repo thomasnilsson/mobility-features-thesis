@@ -13,17 +13,28 @@ class MobilityContext {
 
   /// Features
   int _numberOfPlaces;
-  double _locationVariance, _normalizedEntropy, _homeStay, _distanceTravelled;
+  double _locationVariance,
+      _normalizedEntropy,
+      _homeStay,
+      _distanceTravelled,
+      _routineIndex;
+  List<MobilityContext> contexts;
 
   /// The routine index is calculated from another class since it
   /// needs multiple MobilityContexts to be computed.
   /// This means the field is semi-public and will be set from this class.
-  double _routineIndex = -1.0;
-
   /// Constructor
-  MobilityContext(this._date, this._stops, this._allPlaces, this._moves);
+  MobilityContext(this._date, this._stops, this._allPlaces, this._moves,
+      {this.contexts});
 
   DateTime get date => _date.midnight;
+
+  double get routineIndex {
+    if (_routineIndex == null) {
+      _routineIndex = _calculateRoutineIndex();
+    }
+    return _routineIndex;
+  }
 
   /// Get places today
   List<Place> get places {
@@ -88,10 +99,6 @@ class MobilityContext {
     return _distanceTravelled;
   }
 
-  /// Routine index, calculation takes place in the
-  /// MobilityContextAggregated-class.
-  double get routineIndex => _routineIndex;
-
   /// Private number of places calculation
   int _calculateNumberOfPlaces() {
     return places.length;
@@ -155,133 +162,26 @@ class MobilityContext {
   double _calculateDistanceTravelled() {
     return _moves.map((m) => (m.distance)).fold(0.0, (a, b) => a + b);
   }
-}
-
-class MobilityContextAggregated {
-  List<MobilityContext> _contexts;
-  List<DateTime> _dates;
-
-  /// Features
-  int _numberOfPlacesTotal;
-  double _locationVarianceAverage,
-      _normalizedEntropyAverage,
-      _homeStayAverage,
-      _distanceTravelledAverage,
-      _routineIndexAverage;
-
-  MobilityContextAggregated(this._contexts);
-
-  /// Unique dates
-  List<DateTime> get dates {
-    if (_dates == null) {
-      _dates = _contexts.map((c) => c.date).toSet().toList();
-    }
-    return _dates;
-  }
-
-  /// Number of places among all context
-  int get numberOfPlacesTotal {
-    if (_numberOfPlacesTotal == null) {
-      _numberOfPlacesTotal = _contexts.first._allPlaces.length;
-    }
-    return _numberOfPlacesTotal;
-  }
-
-  /// Average home stay. Filter out days with an undefined home stay,
-  /// which is the case the value is -1.0
-  double get homeStayAverage {
-    if (_homeStayAverage == null) {
-      _homeStayAverage =
-          _contexts.map((c) => c.homeStay).where((x) => x >= 0.0).mean;
-    }
-    return _homeStayAverage;
-  }
-
-  /// Average entropy. Filter out days with undefined location variance,
-  /// which is the case the value is 0.0
-  double get locationVarianceAverage {
-    if (_locationVarianceAverage == null) {
-      _locationVarianceAverage =
-          _contexts.map((c) => c.locationVariance).where((x) => x > 0.0).mean;
-    }
-    return _locationVarianceAverage;
-  }
-
-  /// Average entropy. Filter out days with undefined entropy,
-  /// which is the case the value is -1.0
-  double get normalizedEntropyAverage {
-    if (_normalizedEntropyAverage == null) {
-      _normalizedEntropyAverage = _contexts
-          .map((c) => c._calculateNormalizedEntropy())
-          .where((x) => x >= 0.0)
-          .mean;
-    }
-    return _normalizedEntropyAverage;
-  }
-
-  /// Average distance travelled for all the days.
-  double get distanceTravelledAverage {
-    if (_distanceTravelledAverage == null) {
-      _distanceTravelledAverage =
-          _contexts.map((c) => c.distanceTravelled).mean;
-    }
-    return _distanceTravelledAverage;
-  }
-
-  /// Routine Index Average
-  double get routineIndexAverage {
-    if (_routineIndexAverage == null) {
-      _routineIndexAverage = _computeRoutineOverlapAverage();
-    }
-    return _routineIndexAverage;
-  }
 
   /// Routine index (overlap) calculation
-  double _computeRoutineOverlapForContext(MobilityContext c) {
+  double _calculateRoutineIndex() {
     // We require at least 2 days to compute the routine index
-    if (_contexts.length <= 1) {
+    if (contexts == null) {
+      return -1.0;
+    } else if (contexts.isEmpty) {
       return -1.0;
     }
 
-    /// Hour matrix for each context
-    List<HourMatrix> matrices = _contexts.map((c) => c.hourMatrix).toList();
+    /// Compute the HourMatrix for each context that is older
+    List<HourMatrix> matrices = contexts
+        .where((c) => c.date.isBefore(this.date))
+        .map((c) => c.hourMatrix)
+        .toList();
+
+    /// Compute the 'average day' from the matrices
     HourMatrix avgMatrix = HourMatrix.average(matrices);
 
-    /// Compute the overlap
-    return c.hourMatrix.computeOverlap(avgMatrix);
-  }
-
-  /// Routine index (overlap) calculation
-  double _computeRoutineOverlapAverage() {
-    if (_contexts.isEmpty) return -1.0;
-
-    double overlap = 0.0;
-
-    for (MobilityContext c in _contexts) {
-      /// Set the routine index
-      c._routineIndex = _computeRoutineOverlapForContext(c);
-      overlap += c._routineIndex;
-    }
-
-    return overlap / _contexts.length;
-//    double overlap = 0.0;
-//
-//    // We require at least 2 days to compute the routine index
-//    if (_contexts.length <= 1) {
-//      return -1.0;
-//    }
-//
-//    /// Hour matrix for each context
-//    List<HourMatrix> matrices = _contexts.map((c) => c.hourMatrix).toList();
-//    HourMatrix avgMatrix = HourMatrix.average(matrices);
-//
-//    /// For each context, compute the overlap of
-//    /// its hour matrix and the average matrix
-//    for (MobilityContext c in _contexts) {
-//      overlap += c.hourMatrix.computeOverlap(avgMatrix);
-//    }
-//
-//    /// Compute the average overlap
-//    return overlap / _contexts.length;
+    /// Compute the overlap between the 'average day' and today
+    return this.hourMatrix.computeOverlap(avgMatrix);
   }
 }

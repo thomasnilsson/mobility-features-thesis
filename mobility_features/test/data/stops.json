@@ -103,3 +103,7 @@
 {"centroid":{"latitude":48.17131744180848,"longitude":11.56320658438931},"place_id":0,"arrival":1581888228000,"departure":1581893981145}
 {"centroid":{"latitude":48.17130638850553,"longitude":11.563207039645631},"place_id":0,"arrival":1581894059145,"departure":1581921276995}
 {"centroid":{"latitude":48.14121467141474,"longitude":11.568567296925444},"place_id":1,"arrival":1581922651135,"departure":1581925828267}
+{"centroid":{"latitude":48.17131669398435,"longitude":11.563202487553182},"place_id":1,"arrival":1581541521692,"departure":1581541609798}
+{"centroid":{"latitude":48.17130295278022,"longitude":11.563199778538348},"place_id":2,"arrival":1581541615812,"departure":1581541669804}
+{"centroid":{"latitude":48.17130031453469,"longitude":11.563162769868729},"place_id":3,"arrival":1581541675788,"departure":1581541714245}
+{"centroid":{"latitude":48.17119371087643,"longitude":11.562916048385137},"place_id":4,"arrival":1581541715245,"departure":1581541724001}
