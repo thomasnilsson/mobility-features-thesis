@@ -42,52 +42,6 @@ void main() async {
     assert(d1.midnight == d2.midnight);
   });
 
-  test('Run feature extraction', () async {
-    List<SingleLocationPoint> data = await Dataset().loadDataset(datasetPath);
-    List<Stop> stops = [];
-    List<Move> moves = [];
-    DataPreprocessor dp;
-
-    for (DateTime date in dates) {
-      dp = DataPreprocessor(date);
-      List<Stop> stopsOnDate = dp.findStops(data);
-      stops.addAll(stopsOnDate);
-      moves.addAll(dp.findMoves(data, stopsOnDate));
-    }
-
-    List<Place> places = dp.findPlaces(stops);
-
-    Features f = Features(dates.last, stops, places, moves);
-
-    print('Stops found:');
-    print('*' * 50);
-    printList(f.stopsForPeriod);
-
-    print('Places found:');
-    print('*' * 50);
-    printList(f.placesForPeriod);
-
-    print('Moves found:');
-    print('*' * 50);
-    printList(f.movesForPeriod);
-
-    print('Features:');
-    print('*' * 50);
-
-    print('Number of Clusters: ${f.numberOfClustersAggregate}');
-    print('Entropy: ${f.entropyAggregate}');
-    print('Normalized Entropy: ${f.normalizedEntropyAggregate}');
-    print('Total Distance (meters): ${f.totalDistanceAggregate}');
-    print('Homestay (%): ${f.homeStayAggregate}');
-    print('-' * 50);
-
-    print('Daily Number of Clusters: ${f.numberOfClustersDaily}');
-    print('Daily Entropy: ${f.entropyDaily}');
-    print('Daily Normalized Entropy: ${f.normalizedEntropyDaily}');
-    print('Daily Total Distance (meters): ${f.totalDistanceDaily}');
-    print('Daily Homestay (%): ${f.homeStayDaily}');
-  });
-
   test('Serialization of stops and moves', () async {
     /// Create a [SingleLocationPoint] manually
     SingleLocationPoint p1 =
@@ -159,27 +113,46 @@ void main() async {
 
   test('Incremental RI', () async {
     List<SingleLocationPoint> data = await Dataset().loadDataset(datasetPath);
+    List<MobilityContext> contexts;
 
-    /// This is the equivalent of the stored stops and moves
-    List<Stop> stops = [];
-    List<Move> moves = [];
+    /// Equivalent to storing stops & moves on device, with a date attached
+    Map<DateTime, List<Stop>> stopsDict = {};
+    Map<DateTime, List<Move>> movesDict = {};
 
-    for (DateTime date in dates) {
-      DataPreprocessor dp = DataPreprocessor(date);
+    for (DateTime today in dates) {
+      DataPreprocessor dp = DataPreprocessor(today);
 
       List<SingleLocationPoint> dataOnDate =
-          data.where((x) => (x.datetime.midnight == date)).toList();
+          data.where((x) => (x.datetime.midnight == today)).toList();
 
+      /// Compute stops and moves today
       List<Stop> stopsOnDate = dp.findStops(dataOnDate);
-      stops.addAll(stopsOnDate);
-
-      List<Place> places = dp.findPlaces(stops);
-
       List<Move> movesOnDate = dp.findMoves(dataOnDate, stopsOnDate);
-      moves.addAll(movesOnDate);
 
-      Features features = Features(date, stops, places, moves);
-      print('$date | RoutineIndex: ${features.routineIndexDaily}');
+      /// Save them
+      stopsDict[today] = stopsOnDate;
+      movesDict[today] = movesOnDate;
+
+      /// Get ALL the stored stops, in order to find ALL places
+      List<Stop> allStops = stopsDict.values.expand((l) => l).toList();
+      List<Place> allPlaces = dp.findPlaces(allStops);
+
+      /// Create the new contexts, from the previous stops and moves and ALL places
+      contexts = stopsDict.keys
+          .map((date) => MobilityContext(
+          date, stopsDict[date], allPlaces, movesDict[date],
+          contexts: contexts))
+          .toList();
+
+      /// Create the Mobility Context (MC) today.
+      /// It doesn't matter that we feed it today's MC as well (in the contexts array),
+      /// since this will be filtered out in the routine index calculation anyways.
+      MobilityContext mc = MobilityContext(
+          today, stopsOnDate, allPlaces, movesOnDate,
+          contexts: contexts);
+      print(stopsOnDate.length);
+      print(contexts);
+      print('$today | RoutineIndex: ${mc.routineIndex}');
     }
   });
 
@@ -341,6 +314,7 @@ void main() async {
   });
 
   test('Simulate everything', () async {
+    List<MobilityContext> contexts = [];
     Serializer<SingleLocationPoint> dataSerializer =
         Serializer(new File('$testDataDir/points.json'));
     Serializer<Stop> stopSerializer =
@@ -433,18 +407,19 @@ void main() async {
       moveSerializer.save(movesAll);
 
       /// Calculate features
-      Features features = Features(today, stopsAll, placesAll, movesAll);
+      MobilityContext mc = MobilityContext(today, stopsAll, placesAll, movesAll,
+          contexts: contexts);
+      contexts.add(mc);
 
-      print("No. stops: ${features.stopsDaily.length}");
-      print("No. moves: ${features.movesDaily.length}");
-      print("No. places: ${features.placesForPeriod.length}");
-      print("Routine index daily: ${features.routineIndexDaily}");
-      print(features.hourMatrixDaily);
+      print("Routine index daily: ${mc.routineIndex}");
+      print(mc.hourMatrix);
       print('-' * 40);
     }
   });
 
   test('Test a single date from Bornholm', () async {
+    List<MobilityContext> contexts = [];
+
     Serializer<SingleLocationPoint> pointSerializer =
         Serializer(new File('$testDataDir/points-april.json'));
     Serializer<Stop> stopSerializer =
@@ -469,9 +444,9 @@ void main() async {
       moves.addAll(preprocessor.findMoves(pointsToday, stops, filter: false));
       places = preprocessor.findPlaces(stops);
 
-      Features features = Features(today, stops, places, moves);
-      JsonEncoder encoder = new JsonEncoder.withIndent('  ');
-      print(encoder.convert(features.toJson()));
+      MobilityContext mc =
+          MobilityContext(today, stops, places, moves, contexts: contexts);
+      contexts.add(mc);
     }
 
     printList(stops);
@@ -613,8 +588,9 @@ void main() async {
       printList(places);
 
       /// Calculate and save context
-      MobilityContext context = MobilityContext(date, stops, places, moves, contexts: contexts);
-      
+      MobilityContext context =
+          MobilityContext(date, stops, places, moves, contexts: contexts);
+
       /// Get the routine index
       double routineIndex = context.routineIndex;
 
@@ -624,8 +600,7 @@ void main() async {
       /// Check that the routine index is correct
       if (i == 0) {
         expect(routineIndex, -1.0);
-      }
-      else {
+      } else {
         expect(routineIndex, 1.0);
       }
     }

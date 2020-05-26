@@ -145,6 +145,10 @@ class MobilityContext {
     if (places.isEmpty) {
       return -1.0;
     }
+    // The Entropy is zero when one outcome is certain to occur.
+    else if (places.length < 2) {
+      return 0.0;
+    }
     // Calculate time spent at different places
     List<Duration> durations =
         places.map((p) => p.durationForDate(date)).toList();
@@ -155,7 +159,8 @@ class MobilityContext {
         .map((d) => (d.inMilliseconds.toDouble() /
             totalTimeSpent.inMilliseconds.toDouble()))
         .toList();
-    return -distribution.map((p) => p * log(p)).reduce((a, b) => (a + b));
+    double entropy = -distribution.map((p) => p * log(p)).reduce((a, b) => (a + b));;
+    return entropy / log(numberOfPlaces);
   }
 
   /// Private distance travelled calculation
@@ -178,6 +183,9 @@ class MobilityContext {
         .map((c) => c.hourMatrix)
         .toList();
 
+    if (matrices.isEmpty) {
+      return -1.0;
+    }
     /// Compute the 'average day' from the matrices
     HourMatrix avgMatrix = HourMatrix.average(matrices);
 
