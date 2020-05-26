@@ -14,6 +14,7 @@ class MobilityContext {
   /// Features
   int _numberOfPlaces;
   double _locationVariance,
+      _entropy,
       _normalizedEntropy,
       _homeStay,
       _distanceTravelled,
@@ -80,10 +81,17 @@ class MobilityContext {
     return _locationVariance;
   }
 
-  /// Normalized entropy today
-  /// A scalar between 0 and 1
+  /// Entropy
   /// High entropy: Time is spent evenly among all places
   /// Low  entropy: Time is mainly spent at a few of the places
+  double get entropy {
+    if (_entropy == null) {
+      _entropy = _calculateEntropy();
+    }
+    return _entropy;
+  }
+  /// Normalized entropy,
+  /// a scalar between 0 and 1
   double get normalizedEntropy {
     if (_normalizedEntropy == null) {
       _normalizedEntropy = _calculateNormalizedEntropy();
@@ -139,8 +147,7 @@ class MobilityContext {
     return log(latStd * latStd + lonStd * lonStd + 1);
   }
 
-  /// Private normalized entropy calculation
-  double _calculateNormalizedEntropy() {
+  double _calculateEntropy() {
     // If no places were visited return -1.0
     if (places.isEmpty) {
       return -1.0;
@@ -151,15 +158,23 @@ class MobilityContext {
     }
     // Calculate time spent at different places
     List<Duration> durations =
-        places.map((p) => p.durationForDate(date)).toList();
+    places.map((p) => p.durationForDate(date)).toList();
 
     Duration totalTimeSpent = durations.fold(Duration(), (a, b) => a + b);
 
     List<double> distribution = durations
         .map((d) => (d.inMilliseconds.toDouble() /
-            totalTimeSpent.inMilliseconds.toDouble()))
+        totalTimeSpent.inMilliseconds.toDouble()))
         .toList();
-    double entropy = -distribution.map((p) => p * log(p)).reduce((a, b) => (a + b));;
+
+    return -distribution.map((p) => p * log(p)).reduce((a, b) => (a + b));
+  }
+
+  /// Private normalized entropy calculation
+  double _calculateNormalizedEntropy() {
+    if (numberOfPlaces < 2) {
+      return 0.0;
+    }
     return entropy / log(numberOfPlaces);
   }
 
