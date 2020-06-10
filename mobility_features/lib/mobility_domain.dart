@@ -10,9 +10,36 @@ abstract class Serializable {
   Serializable.fromJson(Map<String, dynamic> json);
 }
 
+/// Simple abstract class to let the compiler know that an object
+/// implementing this class has a location
+abstract class Geospatial {
+  Location get location;
+}
+
+class Distance {
+  static double fromGeospatial(Geospatial a, Geospatial b) {
+    return fromList([a.location._latitude, a.location._longitude],
+        [b.location._latitude, b.location._longitude]);
+  }
+
+  static double fromList(List<double> p1, List<double> p2) {
+    double lat1 = p1[0].radiansFromDegrees;
+    double lon1 = p1[1].radiansFromDegrees;
+    double lat2 = p2[0].radiansFromDegrees;
+    double lon2 = p2[1].radiansFromDegrees;
+    double earthRadius = 6378137.0; // WGS84 major axis
+    double distance = 2 *
+        earthRadius *
+        asin(sqrt(pow(sin(lat2 - lat1) / 2, 2) +
+            cos(lat1) * cos(lat2) * pow(sin(lon2 - lon1) / 2, 2)));
+
+    return distance;
+  }
+}
+
 /// A [Location] object contains a latitude and longitude
 /// and represents a 2D spatial coordinates
-class Location implements Serializable {
+class Location implements Serializable, Geospatial {
   double _latitude;
   double _longitude;
 
@@ -23,6 +50,9 @@ class Location implements Serializable {
     num lon = x['longitude'] as double;
     return Location(lat, lon);
   }
+
+  /// Remove this eventually?
+  Location get location => this;
 
   double get latitude => _latitude;
 
@@ -39,7 +69,7 @@ class Location implements Serializable {
 
 /// A [SingleLocationPoint] holds a 2D [Location] spatial data point
 /// as well as a [DateTime] value s.t. it may be temporally ordered
-class SingleLocationPoint implements Serializable {
+class SingleLocationPoint implements Serializable, Geospatial {
   Location _location;
   DateTime _datetime;
   double speed = 0;
@@ -80,31 +110,15 @@ class SingleLocationPoint implements Serializable {
   }
 }
 
+/// Static class for computing the centroid of a set of [Geospatial] objects
 class Cluster {
-  List<Location> _locations;
-  Location _centroid;
-
-  Cluster(this._locations);
-
-  factory Cluster.fromPoints(List<SingleLocationPoint> points) {
-    List<Location> locs = points.map((p) => p.location).toList();
-    return Cluster(locs);
-  }
-
-  Location get centroid {
-    if (_centroid == null) {
-      _centroid = _calculateCentroid();
-    }
-    return _centroid;
-  }
-
-  List<Location> get locations => _locations;
-
-  Location _calculateCentroid() {
-    double lat = Stats.fromData(locations.map((d) => (d.latitude)).toList())
-        .median as double;
-    double lon = Stats.fromData(locations.map((d) => (d.longitude)).toList())
-        .median as double;
+  static Location computeCentroid(List<Geospatial> dataPoints) {
+    double lat =
+        Stats.fromData(dataPoints.map((d) => (d.location.latitude)).toList())
+            .median as double;
+    double lon =
+        Stats.fromData(dataPoints.map((d) => (d.location.longitude)).toList())
+            .median as double;
     return Location(lat, lon);
   }
 }
@@ -114,22 +128,23 @@ class Cluster {
 /// A [Stop] has an assigned [placeId] which links it to a [Place].
 /// At initialization a stop will be assigned to the 'Noise' place (with id -1),
 /// and only after all places have been identified will a [Place] be assigned.
-class Stop implements Serializable {
-  Location _centroid;
+class Stop implements Serializable, Geospatial {
+  Location _location;
   int placeId;
   DateTime _arrival, _departure;
 
-  Stop(this._centroid, this._arrival, this._departure, {this.placeId = -1});
+  Stop(this._location, this._arrival, this._departure, {this.placeId = -1});
 
   /// Construct stop from point cloud
   factory Stop.fromPoints(List<SingleLocationPoint> points,
       {int placeId = -1}) {
     /// Calculate center
-    Location center = Cluster.fromPoints(points).centroid;
-    return Stop(center, points.first.datetime, points.last.datetime, placeId: placeId);
+    Location center = Cluster.computeCentroid(points);
+    return Stop(center, points.first.datetime, points.last.datetime,
+        placeId: placeId);
   }
 
-  Location get centroid => _centroid;
+  Location get location => _location;
 
   DateTime get departure => _departure;
 
@@ -173,7 +188,7 @@ class Stop implements Serializable {
           departure.millisecondsSinceEpoch - arrival.millisecondsSinceEpoch);
 
   Map<String, dynamic> toJson() => {
-        "centroid": centroid.toJson(),
+        "centroid": location.toJson(),
         "place_id": placeId,
         "arrival": arrival.millisecondsSinceEpoch,
         "departure": departure.millisecondsSinceEpoch
@@ -189,7 +204,7 @@ class Stop implements Serializable {
 
   @override
   String toString() {
-    return 'Stop at place $placeId,  (${_centroid.toString()}) [$arrival - $departure] ($duration) ';
+    return 'Stop at place $placeId,  (${_location.toString()}) [$arrival - $departure] ($duration) ';
   }
 }
 
@@ -198,7 +213,7 @@ class Stop implements Serializable {
 class Place {
   int _id;
   List<Stop> _stops;
-  Location _centroid;
+  Location _location;
 
   Place(this._id, this._stops);
 
@@ -210,19 +225,18 @@ class Place {
       .map((s) => s.duration)
       .fold(Duration(), (a, b) => a + b);
 
-  Location get centroid {
-    if (_centroid == null) {
-      List<Location> centroids = _stops.map((s) => s.centroid).toList();
-      _centroid = Cluster(centroids).centroid;
+  Location get location {
+    if (_location == null) {
+      _location = Cluster.computeCentroid(_stops);
     }
-    return _centroid;
+    return _location;
   }
 
   int get id => _id;
 
   @override
   String toString() {
-    return 'Place ID: $_id, at ${centroid.toString()} ($duration)';
+    return 'Place ID: $_id, at ${location.toString()} ($duration)';
   }
 }
 
@@ -235,17 +249,21 @@ class Move implements Serializable {
 
   Move(this._stopFrom, this._stopTo, this._distance);
 
-  factory Move.fromPoints(Stop from, Stop to, List<SingleLocationPoint> p) {
-    double d = 0.0;
-    for (int i = 0; i < p.length - 1; i++) {
-      d += Distance.fromLocation(p[i]._location, p[i + 1]._location);
-    }
-
-    return Move(from, to, d);
+  factory Move.fromPath(Stop a, Stop b, List<SingleLocationPoint> path) {
+    double d = _computePathDistance(path);
+    return Move(a, b, d);
   }
 
   /// The haversine distance through all the points between the two stops
   double get distance => _distance;
+
+  static double _computePathDistance(List<SingleLocationPoint> path) {
+    double d = 0.0;
+    for (int i = 0; i < path.length - 1; i++) {
+      d += Distance.fromGeospatial(path[i], path[i + 1]);
+    }
+    return d;
+  }
 
   /// The duration of the move in milliseconds
   Duration get duration => Duration(

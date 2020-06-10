@@ -3,7 +3,6 @@ part of mobility_features_lib;
 class Serializer<E> {
   /// Provide a file reference in order to serialize objects.
   File file;
-  int dayWindow;
   String delimiter = '\n';
   bool debug;
 
@@ -16,10 +15,8 @@ class Serializer<E> {
   }
 
   /// Deletes the content of the file
-  Future<void> flush() async {
-    await file.writeAsString('', mode: FileMode.write);
-    _debugPrint('Flushed file!');
-  }
+  Future<void> flush() async =>
+      await file.writeAsString('', mode: FileMode.write);
 
   /// Writes a list of [Serializable] to the file given in the constructor.
   Future<void> save(List<Serializable> elements) async {
@@ -42,7 +39,7 @@ class Serializer<E> {
 
     /// Remove last entry since it is always empty
     /// Then convert each line to JSON, and then to Dart Map<T> objects
-    Iterable<Map<String, dynamic>> maps = lines
+    Iterable<Map<String, dynamic>> jsonObjs = lines
         .sublist(0, lines.length - 1)
         .map((e) => json.decode(e))
         .map((e) => Map<String, dynamic>.from(e));
@@ -50,27 +47,20 @@ class Serializer<E> {
     switch (E) {
       case Move:
 
-      /// Filter out moves which are not recent
-        return maps
-            .map((x) => Move.fromJson(x))
-            .toList();
+        /// Filter out moves which are not recent
+        return jsonObjs.map((x) => Move.fromJson(x)).toList();
       case Stop:
 
-      /// Filter out stops which are not recent
-        return maps
-            .map((x) => Stop.fromJson(x))
-            .toList();
+        /// Filter out stops which are not recent
+        return jsonObjs.map((x) => Stop.fromJson(x)).toList();
       default:
 
-      /// Filter out data points not from today
-        return maps
-            .map((x) => SingleLocationPoint.fromJson(x))
-            .toList();
+        /// Filter out data points not from today
+        return jsonObjs.map((x) => SingleLocationPoint.fromJson(x)).toList();
     }
   }
 
   void _debugPrint(String s) {
     if (debug) print('Serializer<$E> debug: $s');
   }
-
 }

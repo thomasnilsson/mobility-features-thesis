@@ -84,7 +84,7 @@ void main() async {
         SingleLocationPoint(Location(13.345, 95.765), DateTime(2020, 02, 17));
     Stop s2 = Stop.fromPoints([p2, p2, p2], placeId: 1);
 
-    Move m = Move.fromPoints(s1, s2, [p1, p2]);
+    Move m = Move.fromPath(s1, s2, [p1, p2]);
     print(m);
 
     var jsonMove = m.toJson();
@@ -140,16 +140,15 @@ void main() async {
       /// Create the new contexts, from the previous stops and moves and ALL places
       contexts = stopsDict.keys
           .map((date) => MobilityContext(
-          date, stopsDict[date], allPlaces, movesDict[date],
-          contexts: contexts))
+              stopsDict[date], allPlaces, movesDict[date],
+              contexts: contexts, date: date))
           .toList();
 
       /// Create the Mobility Context (MC) today.
       /// It doesn't matter that we feed it today's MC as well (in the contexts array),
       /// since this will be filtered out in the routine index calculation anyways.
-      MobilityContext mc = MobilityContext(
-          today, stopsOnDate, allPlaces, movesOnDate,
-          contexts: contexts);
+      MobilityContext mc = MobilityContext(stopsOnDate, allPlaces, movesOnDate,
+          contexts: contexts, date: today);
       print(stopsOnDate.length);
       print(contexts);
       print('$today | RoutineIndex: ${mc.routineIndex}');
@@ -201,9 +200,9 @@ void main() async {
     printList(stopsFromFile);
 
     List<Move> moves = [
-      Move.fromPoints(stops[0], stops[1], data.sublist(0, 20)),
-      Move.fromPoints(stops[1], stops[2], data.sublist(10, 30)),
-      Move.fromPoints(stops[2], stops[3], data.sublist(20, 40))
+      Move.fromPath(stops[0], stops[1], data.sublist(0, 20)),
+      Move.fromPath(stops[1], stops[2], data.sublist(10, 30)),
+      Move.fromPath(stops[2], stops[3], data.sublist(20, 40))
     ];
 
     printList(moves);
@@ -244,7 +243,7 @@ void main() async {
 
   test('Serialize Stops and Moves', () async {
     Serializer<Stop> stopSerializer =
-        Serializer(new File('$testDataDir/all_stops.json'));
+        Serializer(new File('$testDataDir/all_stopxs.json'));
     Serializer<Move> moveSerializer =
         Serializer(new File('$testDataDir/all_moves.json'));
 
@@ -407,8 +406,8 @@ void main() async {
       moveSerializer.save(movesAll);
 
       /// Calculate features
-      MobilityContext mc = MobilityContext(today, stopsAll, placesAll, movesAll,
-          contexts: contexts);
+      MobilityContext mc = MobilityContext(stopsAll, placesAll, movesAll,
+          contexts: contexts, date: today);
       contexts.add(mc);
 
       print("Routine index daily: ${mc.routineIndex}");
@@ -444,8 +443,8 @@ void main() async {
       moves.addAll(preprocessor.findMoves(pointsToday, stops, filter: false));
       places = preprocessor.findPlaces(stops);
 
-      MobilityContext mc =
-          MobilityContext(today, stops, places, moves, contexts: contexts);
+      MobilityContext mc = MobilityContext(stops, places, moves,
+          contexts: contexts, date: today);
       contexts.add(mc);
     }
 
@@ -489,7 +488,8 @@ void main() async {
     printList(moves);
     printList(places);
 
-    MobilityContext context = MobilityContext(jan01, stops, places, moves);
+    MobilityContext context =
+        MobilityContext(stops, places, moves, date: jan01);
     print(context.hourMatrix);
     print('Home stay: ${context.homeStay}');
 
@@ -541,7 +541,8 @@ void main() async {
     printList(moves);
     printList(places);
 
-    MobilityContext context = MobilityContext(jan01, stops, places, moves);
+    MobilityContext context =
+        MobilityContext(stops, places, moves, date: jan01);
     print(context.hourMatrix);
 
     int timeTracked = stops.last.departure.millisecondsSinceEpoch -
@@ -589,13 +590,48 @@ void main() async {
 
       /// Calculate and save context
       MobilityContext context =
-          MobilityContext(date, stops, places, moves, contexts: contexts);
+          MobilityContext(stops, places, moves, contexts: contexts, date: date);
 
       /// Get the routine index
       double routineIndex = context.routineIndex;
 
       /// Add this context
       contexts.add(context);
+
+      /// Check that the routine index is correct
+      if (i == 0) {
+        expect(routineIndex, -1.0);
+      } else {
+        expect(routineIndex, 1.0);
+      }
+    }
+  });
+
+  test('Noerrebro several days with Serialization built in', () async {
+    for (int i = 0; i < 5; i++) {
+      DateTime date = jan01.add(Duration(days: i));
+
+      /// Todays data
+      List<SingleLocationPoint> gpsPoints = [
+        // 5 hours spent at home
+        SingleLocationPoint(loc0, date.add(Duration(hours: 0, minutes: 0))),
+        SingleLocationPoint(loc0, date.add(Duration(hours: 6, minutes: 0))),
+
+        SingleLocationPoint(loc1, date.add(Duration(hours: 8, minutes: 0))),
+        SingleLocationPoint(loc1, date.add(Duration(hours: 9, minutes: 30))),
+      ];
+
+      Serializer<SingleLocationPoint> serializer =
+          await ContextGenerator.pointSerializer;
+
+      serializer.save(gpsPoints);
+
+      /// Calculate and save context
+      MobilityContext context =
+          await ContextGenerator.generate(usePriorContexts: true);
+
+      /// Get the routine index
+      double routineIndex = context.routineIndex;
 
       /// Check that the routine index is correct
       if (i == 0) {

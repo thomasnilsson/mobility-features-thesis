@@ -44,15 +44,15 @@ class DataPreprocessor {
     while (start < n) {
       int end = start + 1;
       List<SingleLocationPoint> subset = data.sublist(start, end);
-      Location centroid = Cluster.fromPoints(subset).centroid;
+      Location centroid = Cluster.computeCentroid(subset);
 
       /// Expand cluster until either all data points have been considered,
       /// or the current data point lies outside the radius.
       while (end < n &&
-          Distance.fromLocation(centroid, data[end].location) <= stopRadius) {
+          Distance.fromGeospatial(centroid, data[end]) <= stopRadius) {
         end += 1;
         subset = data.sublist(start, end);
-        centroid = Cluster.fromPoints(subset).centroid;
+        centroid = Cluster.computeCentroid(subset);
       }
       Stop s = Stop.fromPoints(subset);
       stops.add(s);
@@ -84,11 +84,11 @@ class DataPreprocessor {
     DBSCAN dbscan = DBSCAN(
         epsilon: placeRadius,
         minPoints: 1,
-        distanceMeasure: Distance.fromDouble);
+        distanceMeasure: Distance.fromList);
 
     /// Extract gps coordinates from stops
     List<List<double>> stopCoordinates = stops
-        .map((s) => ([s.centroid.latitude, s.centroid.longitude]))
+        .map((s) => ([s.location.latitude, s.location.longitude]))
         .toList();
 
     /// Run DBSCAN on data points
@@ -137,7 +137,7 @@ class DataPreprocessor {
               cur.departure.leq(d.datetime) && d.datetime.leq(next.arrival))
           .toList();
 
-      moves.add(Move.fromPoints(cur, next, pointsInBetween));
+      moves.add(Move.fromPath(cur, next, pointsInBetween));
     }
 
     /// Filter out moves based on the minimum duration

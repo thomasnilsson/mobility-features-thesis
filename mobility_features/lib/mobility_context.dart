@@ -7,8 +7,10 @@ part of mobility_features_lib;
 class MobilityContext {
   List<Stop> _stops;
   List<Place> _allPlaces, _places;
+
+  List<Stop> get stops => _stops;
   List<Move> _moves;
-  DateTime _date;
+  DateTime _timestamp, date;
   HourMatrix _hourMatrix;
 
   /// Features
@@ -21,14 +23,19 @@ class MobilityContext {
       _routineIndex;
   List<MobilityContext> contexts;
 
-  /// The routine index is calculated from another class since it
-  /// needs multiple MobilityContexts to be computed.
-  /// This means the field is semi-public and will be set from this class.
-  /// Constructor
-  MobilityContext(this._date, this._stops, this._allPlaces, this._moves,
-      {this.contexts});
+  /// Private constructor, cannot be instantiated from outside
+  MobilityContext._(this._stops, this._allPlaces, this._moves,
+      {this.contexts, this.date}) {
+    _timestamp = DateTime.now();
+  }
 
-  DateTime get date => _date.midnight;
+  /// Public constructor, can be instantiated from outside
+  MobilityContext(this._stops, this._allPlaces, this._moves,
+      {this.contexts, this.date}) {
+    _timestamp = DateTime.now();
+  }
+
+  get timestamp => _timestamp;
 
   double get routineIndex {
     if (_routineIndex == null) {
@@ -90,6 +97,7 @@ class MobilityContext {
     }
     return _entropy;
   }
+
   /// Normalized entropy,
   /// a scalar between 0 and 1
   double get normalizedEntropy {
@@ -140,9 +148,9 @@ class MobilityContext {
     if (_stops.length < 2) {
       return 0.0;
     }
-    double latStd = Stats.fromData(_stops.map((s) => (s.centroid.latitude)))
+    double latStd = Stats.fromData(_stops.map((s) => (s.location.latitude)))
         .standardDeviation;
-    double lonStd = Stats.fromData(_stops.map((s) => (s.centroid.longitude)))
+    double lonStd = Stats.fromData(_stops.map((s) => (s.location.longitude)))
         .standardDeviation;
     return log(latStd * latStd + lonStd * lonStd + 1);
   }
@@ -158,13 +166,13 @@ class MobilityContext {
     }
     // Calculate time spent at different places
     List<Duration> durations =
-    places.map((p) => p.durationForDate(date)).toList();
+        places.map((p) => p.durationForDate(date)).toList();
 
     Duration totalTimeSpent = durations.fold(Duration(), (a, b) => a + b);
 
     List<double> distribution = durations
         .map((d) => (d.inMilliseconds.toDouble() /
-        totalTimeSpent.inMilliseconds.toDouble()))
+            totalTimeSpent.inMilliseconds.toDouble()))
         .toList();
 
     return -distribution.map((p) => p * log(p)).reduce((a, b) => (a + b));
@@ -201,10 +209,113 @@ class MobilityContext {
     if (matrices.isEmpty) {
       return -1.0;
     }
+
     /// Compute the 'average day' from the matrices
     HourMatrix avgMatrix = HourMatrix.average(matrices);
 
     /// Compute the overlap between the 'average day' and today
     return this.hourMatrix.computeOverlap(avgMatrix);
+  }
+
+  List<Place> get allPlaces => _allPlaces;
+
+  List<Move> get moves => _moves;
+
+  Map<String, dynamic> toJson() => {
+        "date": date.toIso8601String(),
+        "timestamp": timestamp.toIso8601String(),
+        "num_of_places": numberOfPlaces,
+        "entropy": entropy,
+        "normalized_entropy": normalizedEntropy,
+        "home_stay": homeStay,
+        "distance_travelled": distanceTravelled,
+        "routine_index": routineIndex,
+      };
+}
+
+class ContextGenerator {
+  static const String POINTS = 'points', STOPS = 'stops', MOVES = 'moves';
+
+  static Future<File> _file(String type) async {
+    bool isMobile = Platform.isAndroid || Platform.isIOS;
+
+    /// If on a mobile device, use the path_provider plugin to access the
+    /// file system
+    String path;
+    if (isMobile) {
+      path = (await getApplicationDocumentsDirectory()).path;
+    } else {
+      path = 'test/data';
+    }
+    return new File('$path/$type.json');
+  }
+
+  static Future<Serializer<SingleLocationPoint>> get pointSerializer async =>
+      await Serializer<SingleLocationPoint>(await _file(POINTS));
+
+  static Future<MobilityContext> generate({bool usePriorContexts, DateTime today}) async {
+    /// Init serializers
+    Serializer<SingleLocationPoint> slpSerializer = await pointSerializer;
+    Serializer<Stop> stopSerializer = Serializer<Stop>(await _file(STOPS));
+    Serializer<Move> moveSerializer = Serializer<Move>(await _file(MOVES));
+
+    /// Load data from disk
+    List<SingleLocationPoint> pointsToday = await slpSerializer.load();
+    List<Stop> stopsAll = await stopSerializer.load();
+    List<Move> movesAll = await moveSerializer.load();
+
+    // Filter out old points
+    // Filter out todays stops, and stops older than 28 days
+    today = today ?? DateTime.now().midnight;
+    pointsToday = _filterPoints(pointsToday);
+    stopsAll = _filterStops(stopsAll, date: today);
+    movesAll = _filterMoves(movesAll, date: today);
+
+    /// Recompute stops and moves today and add them
+    DataPreprocessor dp = DataPreprocessor(DateTime.now().midnight);
+    List<Stop> stopsToday = dp.findStops(pointsToday);
+    List<Move> movesToday = dp.findMoves(pointsToday, stopsToday);
+    stopsAll.addAll(stopsToday);
+    movesAll.addAll(movesToday);
+
+    /// Save Stops and Moves to disk
+    stopSerializer.flush();
+    moveSerializer.flush();
+    stopSerializer.save(stopsAll);
+    moveSerializer.save(movesAll);
+
+    /// Find places for the period
+    List<Place> placesAll = dp.findPlaces(stopsAll);
+
+    /// Find prior contexts, if prior is not chosen just leave empty
+    List<MobilityContext> priorContexts = [];
+
+    /// If Prior is chosen, compute mobility contexts for each previous date.
+    if (usePriorContexts) {
+      Set<DateTime> dates = stopsAll.map((s) => s.arrival).toSet();
+      for (DateTime date in dates) {
+        List<Stop> stopsOnDate = _filterStops(stopsAll, date: date);
+        List<Move> movesOnDate = _filterMoves(movesAll, date: date);
+        MobilityContext mc =
+            MobilityContext._(stopsOnDate, placesAll, movesOnDate, date: date);
+        priorContexts.add(mc);
+      }
+    }
+
+    return MobilityContext._(stopsToday, placesAll, movesToday,
+        contexts: priorContexts);
+  }
+
+  static List<SingleLocationPoint> _filterPoints(List<SingleLocationPoint> slps,
+      {DateTime date}) {
+    return slps;
+  }
+
+  static List<Stop> _filterStops(List<Stop> stops, {DateTime date}) {
+    return stops;
+  }
+
+  static List<Move> _filterMoves(List<Move> moves, {DateTime date}) {
+    return moves;
   }
 }
