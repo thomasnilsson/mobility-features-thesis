@@ -267,8 +267,8 @@ class ContextGenerator {
     // Filter out todays stops, and stops older than 28 days
     today = today ?? DateTime.now().midnight;
     pointsToday = _filterPoints(pointsToday, today);
-    stopsAll = _stopsForDate(stopsAll, today);
-    movesAll = _movesForDate(movesAll, today);
+    stopsAll = _stopsHistoric(stopsAll, today);
+    movesAll = _movesHistoric(movesAll, today);
 
     /// Recompute stops and moves today and add them
     DataPreprocessor dp = DataPreprocessor(DateTime.now().midnight);
