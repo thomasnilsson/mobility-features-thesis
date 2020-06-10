@@ -3,6 +3,7 @@ import 'package:mobility_features/mobility_features_lib.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'dart:convert';
 import 'dart:io';
+import 'package:collection/collection.dart';
 
 Duration takeTime(DateTime start, DateTime end) {
   int ms = end.millisecondsSinceEpoch - start.millisecondsSinceEpoch;
@@ -12,6 +13,7 @@ Duration takeTime(DateTime start, DateTime end) {
 void main() async {
   String datasetPath = 'lib/data/example-multi.json';
   String testDataDir = 'test/data';
+  Function listEq = const ListEquality().equals;
 
   List<DateTime> dates = [
     DateTime(2020, 02, 12),
@@ -169,7 +171,7 @@ void main() async {
     List<SingleLocationPoint> data = await Dataset().loadDataset(datasetPath);
 
     Serializer<SingleLocationPoint> dataSerializer =
-        Serializer(new File('$testDataDir/points.json'));
+        Serializer(new File('$testDataDir/munich_points.json'));
     List<SingleLocationPoint> subset = data.sublist(0, 5);
     printList(subset);
 
@@ -191,7 +193,7 @@ void main() async {
 
     /// Serialize stops
     Serializer<Stop> stopSerializer =
-        Serializer(new File('$testDataDir/stops.json'));
+        Serializer(new File('$testDataDir/munich_stops.json'));
     stopSerializer.save(stops);
 
     /// De-serialize stops
@@ -209,7 +211,7 @@ void main() async {
 
     /// Serialize moves
     Serializer<Move> moveSerializer =
-        Serializer(new File('$testDataDir/moves.json'));
+        Serializer(new File('$testDataDir/munich_moves.json'));
     moveSerializer.save(moves);
 
     /// Deserialize moves
@@ -315,11 +317,11 @@ void main() async {
   test('Simulate everything', () async {
     List<MobilityContext> contexts = [];
     Serializer<SingleLocationPoint> dataSerializer =
-        Serializer(new File('$testDataDir/points.json'));
+        Serializer(new File('$testDataDir/munich_points.json'));
     Serializer<Stop> stopSerializer =
-        Serializer(new File('$testDataDir/stops.json'));
+        Serializer(new File('$testDataDir/munich_stops.json'));
     Serializer<Move> moveSerializer =
-        Serializer(new File('$testDataDir/moves.json'));
+        Serializer(new File('$testDataDir/munich_moves.json'));
 
     /// Reset file content
     dataSerializer.flush();
@@ -439,8 +441,8 @@ void main() async {
     for (DateTime today in aprilDates) {
       DataPreprocessor preprocessor = DataPreprocessor(today);
       List<SingleLocationPoint> pointsToday = preprocessor.pointsToday(points);
-      stops.addAll(preprocessor.findStops(pointsToday, filter: false));
-      moves.addAll(preprocessor.findMoves(pointsToday, stops, filter: false));
+      stops.addAll(preprocessor.findStops(pointsToday));
+      moves.addAll(preprocessor.findMoves(pointsToday, stops));
       places = preprocessor.findPlaces(stops);
 
       MobilityContext mc = MobilityContext(stops, places, moves,
@@ -608,6 +610,12 @@ void main() async {
   });
 
   test('Noerrebro several days with Serialization built in', () async {
+    Serializer<SingleLocationPoint> serializer =
+        await ContextGenerator.pointSerializer;
+
+    /// Clean file every time test is run
+    serializer.flush();
+
     for (int i = 0; i < 5; i++) {
       DateTime date = jan01.add(Duration(days: i));
 
@@ -621,24 +629,48 @@ void main() async {
         SingleLocationPoint(loc1, date.add(Duration(hours: 9, minutes: 30))),
       ];
 
-      Serializer<SingleLocationPoint> serializer =
-          await ContextGenerator.pointSerializer;
-
       serializer.save(gpsPoints);
 
       /// Calculate and save context
       MobilityContext context =
-          await ContextGenerator.generate(usePriorContexts: true);
+          await ContextGenerator.generate(usePriorContexts: true, today: date);
 
       /// Get the routine index
       double routineIndex = context.routineIndex;
 
-      /// Check that the routine index is correct
-      if (i == 0) {
-        expect(routineIndex, -1.0);
-      } else {
-        expect(routineIndex, 1.0);
-      }
+      List data = await serializer.load();
+      print(routineIndex);
+    }
+  });
+
+  test('Serialize and Load', () async {
+    Serializer<SingleLocationPoint> serializer =
+        await ContextGenerator.pointSerializer;
+
+    /// Clean file every time test is run
+    await serializer.flush();
+    List<SingleLocationPoint> dataset = [];
+
+    for (int i = 0; i < 5; i++) {
+      DateTime date = jan01.add(Duration(days: i));
+
+      /// Todays data
+      List<SingleLocationPoint> gpsPoints = [
+        // 5 hours spent at home
+        SingleLocationPoint(loc0, date.add(Duration(hours: 0, minutes: 0))),
+        SingleLocationPoint(loc0, date.add(Duration(hours: 6, minutes: 0))),
+
+        SingleLocationPoint(loc1, date.add(Duration(hours: 8, minutes: 0))),
+        SingleLocationPoint(loc1, date.add(Duration(hours: 9, minutes: 30))),
+      ];
+
+      /// Save
+      serializer.save(gpsPoints);
+      dataset.addAll(gpsPoints);
+
+      /// Load
+      List<SingleLocationPoint> loaded = await serializer.load();
+      expect(loaded.length, dataset.length);
     }
   });
 }

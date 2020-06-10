@@ -27,12 +27,14 @@ class MobilityContext {
   MobilityContext._(this._stops, this._allPlaces, this._moves,
       {this.contexts, this.date}) {
     _timestamp = DateTime.now();
+    date = date ?? _timestamp.midnight;
   }
 
   /// Public constructor, can be instantiated from outside
   MobilityContext(this._stops, this._allPlaces, this._moves,
       {this.contexts, this.date}) {
     _timestamp = DateTime.now();
+    date = date ?? _timestamp.midnight;
   }
 
   get timestamp => _timestamp;
@@ -196,7 +198,7 @@ class MobilityContext {
     // We require at least 2 days to compute the routine index
     if (contexts == null) {
       return -1.0;
-    } else if (contexts.isEmpty) {
+    } else if (contexts.length <= 1) {
       return -1.0;
     }
 
@@ -205,10 +207,6 @@ class MobilityContext {
         .where((c) => c.date.isBefore(this.date))
         .map((c) => c.hourMatrix)
         .toList();
-
-    if (matrices.isEmpty) {
-      return -1.0;
-    }
 
     /// Compute the 'average day' from the matrices
     HourMatrix avgMatrix = HourMatrix.average(matrices);
@@ -253,7 +251,8 @@ class ContextGenerator {
   static Future<Serializer<SingleLocationPoint>> get pointSerializer async =>
       await Serializer<SingleLocationPoint>(await _file(POINTS));
 
-  static Future<MobilityContext> generate({bool usePriorContexts, DateTime today}) async {
+  static Future<MobilityContext> generate(
+      {bool usePriorContexts, DateTime today}) async {
     /// Init serializers
     Serializer<SingleLocationPoint> slpSerializer = await pointSerializer;
     Serializer<Stop> stopSerializer = Serializer<Stop>(await _file(STOPS));
@@ -267,9 +266,9 @@ class ContextGenerator {
     // Filter out old points
     // Filter out todays stops, and stops older than 28 days
     today = today ?? DateTime.now().midnight;
-    pointsToday = _filterPoints(pointsToday);
-    stopsAll = _filterStops(stopsAll, date: today);
-    movesAll = _filterMoves(movesAll, date: today);
+    pointsToday = _filterPoints(pointsToday, today);
+    stopsAll = _stopsForDate(stopsAll, today);
+    movesAll = _movesForDate(movesAll, today);
 
     /// Recompute stops and moves today and add them
     DataPreprocessor dp = DataPreprocessor(DateTime.now().midnight);
@@ -292,10 +291,10 @@ class ContextGenerator {
 
     /// If Prior is chosen, compute mobility contexts for each previous date.
     if (usePriorContexts) {
-      Set<DateTime> dates = stopsAll.map((s) => s.arrival).toSet();
+      Set<DateTime> dates = stopsAll.map((s) => s.arrival.midnight).toSet();
       for (DateTime date in dates) {
-        List<Stop> stopsOnDate = _filterStops(stopsAll, date: date);
-        List<Move> movesOnDate = _filterMoves(movesAll, date: date);
+        List<Stop> stopsOnDate = _stopsForDate(stopsAll, date);
+        List<Move> movesOnDate = _movesForDate(movesAll, date);
         MobilityContext mc =
             MobilityContext._(stopsOnDate, placesAll, movesOnDate, date: date);
         priorContexts.add(mc);
@@ -306,16 +305,34 @@ class ContextGenerator {
         contexts: priorContexts);
   }
 
-  static List<SingleLocationPoint> _filterPoints(List<SingleLocationPoint> slps,
-      {DateTime date}) {
-    return slps;
+  static List<SingleLocationPoint> _filterPoints(
+      List<SingleLocationPoint> X, DateTime date) {
+    return X.where((x) => x.datetime.midnight == date).toList();
   }
 
-  static List<Stop> _filterStops(List<Stop> stops, {DateTime date}) {
-    return stops;
+  static List<Stop> _stopsForDate(List<Stop> stops, DateTime date) {
+    return stops.where((x) => x.arrival.midnight == date).toList();
   }
 
-  static List<Move> _filterMoves(List<Move> moves, {DateTime date}) {
-    return moves;
+  static List<Move> _movesForDate(List<Move> moves, DateTime date) {
+    return moves.where((x) => x.stopFrom.arrival.midnight == date).toList();
+  }
+
+  static List<Stop> _stopsHistoric(List<Stop> stops, DateTime date) {
+    DateTime fourWeeksPrior = date.subtract(Duration(days: 28));
+    return stops
+        .where((x) =>
+            x.arrival.midnight.isBefore(date) &&
+            x.arrival.midnight.isAfter(fourWeeksPrior))
+        .toList();
+  }
+
+  static List<Move> _movesHistoric(List<Move> moves, DateTime date) {
+    DateTime fourWeeksPrior = date.subtract(Duration(days: 28));
+    return moves
+        .where((x) =>
+            x.stopFrom.arrival.midnight.isBefore(date) &&
+            x.stopFrom.arrival.midnight.isAfter(fourWeeksPrior))
+        .toList();
   }
 }
