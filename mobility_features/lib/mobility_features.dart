@@ -13,4 +13,4 @@ part 'mobility_functions.dart';
 part 'mobility_domain.dart';
 part 'mobility_intermediate.dart';
 part 'mobility_context.dart';
-part 'serializer.dart';
+part 'mobility_serializer.dart';

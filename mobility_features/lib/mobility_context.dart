@@ -248,15 +248,15 @@ class ContextGenerator {
     return new File('$path/$type.json');
   }
 
-  static Future<Serializer<SingleLocationPoint>> get pointSerializer async =>
-      Serializer<SingleLocationPoint>(await _file(POINTS));
+  static Future<MobilitySerializer<SingleLocationPoint>> get pointSerializer async =>
+      MobilitySerializer<SingleLocationPoint>._(await _file(POINTS));
 
   static Future<MobilityContext> generate(
       {bool usePriorContexts: false, DateTime today}) async {
     /// Init serializers
-    Serializer<SingleLocationPoint> slpSerializer = await pointSerializer;
-    Serializer<Stop> stopSerializer = Serializer<Stop>(await _file(STOPS));
-    Serializer<Move> moveSerializer = Serializer<Move>(await _file(MOVES));
+    MobilitySerializer<SingleLocationPoint> slpSerializer = await pointSerializer;
+    MobilitySerializer<Stop> stopSerializer = MobilitySerializer<Stop>._(await _file(STOPS));
+    MobilitySerializer<Move> moveSerializer = MobilitySerializer<Move>._(await _file(MOVES));
 
     /// Load data from disk
     List<SingleLocationPoint> pointsToday = await slpSerializer.load();

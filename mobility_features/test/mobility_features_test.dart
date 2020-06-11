@@ -25,6 +25,7 @@ void main() async {
     DateTime(2020, 02, 17),
   ];
 
+
   DateTime jan01 = DateTime(2020, 01, 01);
 
   // Poppelgade 7, home
@@ -48,11 +49,12 @@ void main() async {
 
     DateTime d3 = DateTime.parse('2020-02-13 09:30:00.000');
     expect(d1.midnight, isNot(d3.midnight));
+
   });
 
   group("Mobility Context Tests", () {
     test('Serialize and load three data points', () async {
-      Serializer<SingleLocationPoint> serializer =
+      MobilitySerializer<SingleLocationPoint> serializer =
           await ContextGenerator.pointSerializer;
 
       SingleLocationPoint p1 =
@@ -65,7 +67,7 @@ void main() async {
     });
 
     test('Serialize and load and multiple days', () async {
-      Serializer<SingleLocationPoint> serializer =
+      MobilitySerializer<SingleLocationPoint> serializer =
           await ContextGenerator.pointSerializer;
 
       /// Clean file every time test is run
@@ -104,7 +106,7 @@ void main() async {
         SingleLocationPoint(loc0, jan01.add(timeTracked)),
       ];
 
-      Serializer<SingleLocationPoint> serializer =
+      MobilitySerializer<SingleLocationPoint> serializer =
           await ContextGenerator.pointSerializer;
 
       serializer.flush();
@@ -118,7 +120,7 @@ void main() async {
     });
 
     test('Features: Single day, multiple locations', () async {
-      Serializer<SingleLocationPoint> serializer =
+      MobilitySerializer<SingleLocationPoint> serializer =
           await ContextGenerator.pointSerializer;
 
       /// Clean file every time test is run
@@ -167,7 +169,7 @@ void main() async {
     });
 
     test('Features: Multiple days, multiple locations', () async {
-      Serializer<SingleLocationPoint> serializer =
+      MobilitySerializer<SingleLocationPoint> serializer =
           await ContextGenerator.pointSerializer;
 
       /// Clean file every time test is run

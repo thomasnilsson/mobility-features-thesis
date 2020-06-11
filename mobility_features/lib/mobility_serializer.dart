@@ -1,13 +1,11 @@
 part of mobility_features_lib;
 
-class Serializer<E> {
+class MobilitySerializer<E> {
   /// Provide a file reference in order to serialize objects.
   File file;
   String delimiter = '\n';
-  bool debug;
 
-  Serializer(this.file, {this.debug = false}) {
-    _debugPrint('Initializing Serializer for ${file.path}');
+  MobilitySerializer._(this.file) {
     bool exists = file.existsSync();
     if (!exists) {
       flush();
@@ -20,7 +18,6 @@ class Serializer<E> {
 
   /// Writes a list of [_Serializable] to the file given in the constructor.
   Future<void> save(List<_Serializable> elements) async {
-    _debugPrint('Saving to file...');
     String jsonString = "";
     for (_Serializable e in elements) {
       jsonString += json.encode(e._toJson()) + delimiter;
@@ -58,9 +55,5 @@ class Serializer<E> {
         /// Filter out data points not from today
         return jsonObjs.map((x) => SingleLocationPoint._fromJson(x)).toList();
     }
-  }
-
-  void _debugPrint(String s) {
-    if (debug) print('Serializer<$E> debug: $s');
   }
 }
