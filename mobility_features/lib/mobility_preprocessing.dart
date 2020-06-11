@@ -61,15 +61,15 @@ class DataPreprocessor {
     stops = stops.where((s) => (s.duration >= stopDuration)).toList();
 
     /// Add additional boundary stops, this is necessary to calculate moves.
-    Stop first = Stop.fromPoints([data.first]);
-    List<Stop> allStops = [first] + stops;
+//    Stop first = Stop.fromPoints([data.first]);
+//    List<Stop> allStops = [first] + stops;
+//
+//    if (data.first != data.last) {
+//      Stop last = Stop.fromPoints([data.last]);
+//      allStops.add(last);
+//    }
 
-    if (data.first != data.last) {
-      Stop last = Stop.fromPoints([data.last]);
-      allStops.add(last);
-    }
-
-    return allStops;
+    return stops;
   }
 
   /// Finds the places by clustering stops with the DBSCAN algorithm
@@ -114,11 +114,19 @@ class DataPreprocessor {
   List<Move> findMoves(List<SingleLocationPoint> data, List<Stop> stops) {
     if (stops.isEmpty) return [];
     List<Move> moves = [];
+    /// Insert two placeholder stops, as the first and last data point gathered
+    Stop first = Stop.fromPoints([data.first]);
+    List<Stop> allStops = [first] + stops;
+
+    if (data.first != data.last) {
+      Stop last = Stop.fromPoints([data.last]);
+      allStops.add(last);
+    }
 
     /// Create moves from stops
-    for (int i = 0; i < stops.length - 1; i++) {
-      Stop cur = stops[i];
-      Stop next = stops[i + 1];
+    for (int i = 0; i < allStops.length - 1; i++) {
+      Stop cur = allStops[i];
+      Stop next = allStops[i + 1];
 
       /// Extract all points (including the 'loose' points) between the two stops
       List<SingleLocationPoint> pointsInBetween = data

@@ -252,7 +252,7 @@ class ContextGenerator {
       await Serializer<SingleLocationPoint>(await _file(POINTS));
 
   static Future<MobilityContext> generate(
-      {bool usePriorContexts, DateTime today}) async {
+      {bool usePriorContexts: false, DateTime today}) async {
     /// Init serializers
     Serializer<SingleLocationPoint> slpSerializer = await pointSerializer;
     Serializer<Stop> stopSerializer = Serializer<Stop>(await _file(STOPS));
@@ -296,13 +296,13 @@ class ContextGenerator {
         List<Stop> stopsOnDate = _stopsForDate(stopsAll, date);
         List<Move> movesOnDate = _movesForDate(movesAll, date);
         MobilityContext mc =
-            MobilityContext._(stopsOnDate, placesAll, movesOnDate, date: date);
+            MobilityContext(stopsOnDate, placesAll, movesOnDate, date: date);
         priorContexts.add(mc);
       }
     }
 
-    return MobilityContext._(stopsToday, placesAll, movesToday,
-        contexts: priorContexts);
+    return MobilityContext(stopsToday, placesAll, movesToday,
+        contexts: priorContexts, date: today);
   }
 
   static List<SingleLocationPoint> _filterPoints(

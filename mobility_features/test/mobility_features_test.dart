@@ -455,195 +455,20 @@ void main() async {
     printList(places);
   });
 
-  test('Simple serialization test', () async {
+  test('Serialize and load three data points', () async {
     Serializer<SingleLocationPoint> serializer =
-        Serializer(new File('$testDataDir/test.json'));
+        await ContextGenerator.pointSerializer;
 
     SingleLocationPoint p1 =
         SingleLocationPoint(Location(12.345, 98.765), DateTime(2020, 02, 16));
 
     await serializer.flush();
     await serializer.save([p1, p1, p1]);
-    await serializer.flush();
-    await serializer.save([p1, p1, p1]);
-    await serializer.flush();
-    await serializer.save([p1, p1, p1]);
-
     List loaded = await serializer.load();
-    print(loaded.length);
+    expect(loaded.length, 3);
   });
 
-  test('Single Stop', () {
-    List<SingleLocationPoint> dataset = [
-      // 5 hours spent at home
-      SingleLocationPoint(loc0, jan01.add(Duration(hours: 0, minutes: 0))),
-    ];
-
-    DataPreprocessor preprocessor = DataPreprocessor(jan01);
-    List<Stop> stops = preprocessor.findStops(dataset);
-    List<Move> moves = preprocessor.findMoves(dataset, stops);
-    List<Place> places = preprocessor.findPlaces(stops);
-
-    printList(dataset);
-
-    printList(stops);
-    printList(moves);
-    printList(places);
-
-    MobilityContext context =
-        MobilityContext(stops, places, moves, date: jan01);
-    print(context.hourMatrix);
-    print('Home stay: ${context.homeStay}');
-
-    Duration timeTracked = Duration(hours: 21);
-    Duration homeTime = stops
-        .where((x) => x.placeId == 0)
-        .map((x) => x.duration)
-        .reduce((a, b) => a + b);
-
-    Duration d = places.first.durationForDate(jan01);
-    print(d);
-    print(timeTracked);
-    print(homeTime);
-    print(homeTime.inMilliseconds / timeTracked.inMilliseconds);
-  });
-
-  test('Noerrebro single day', () {
-    List<SingleLocationPoint> dataset = [
-      // 5 hours spent at home
-      SingleLocationPoint(loc0, jan01.add(Duration(hours: 0, minutes: 0))),
-      SingleLocationPoint(loc0, jan01.add(Duration(hours: 6, minutes: 0))),
-
-      SingleLocationPoint(loc1, jan01.add(Duration(hours: 8, minutes: 0))),
-      SingleLocationPoint(loc1, jan01.add(Duration(hours: 9, minutes: 30))),
-
-      SingleLocationPoint(loc2, jan01.add(Duration(hours: 10, minutes: 0))),
-      SingleLocationPoint(loc2, jan01.add(Duration(hours: 11, minutes: 30))),
-
-      /// 1 hour spent at home
-      SingleLocationPoint(loc0, jan01.add(Duration(hours: 15, minutes: 0))),
-      SingleLocationPoint(loc0, jan01.add(Duration(hours: 16, minutes: 0))),
-
-      SingleLocationPoint(loc3, jan01.add(Duration(hours: 17, minutes: 0))),
-      SingleLocationPoint(loc3, jan01.add(Duration(hours: 18, minutes: 0))),
-
-      // 1 hour spent at home
-      SingleLocationPoint(loc0, jan01.add(Duration(hours: 20, minutes: 0))),
-      SingleLocationPoint(loc0, jan01.add(Duration(hours: 21, minutes: 0))),
-    ];
-
-    DataPreprocessor preprocessor = DataPreprocessor(jan01);
-    List<Stop> stops = preprocessor.findStops(dataset);
-    List<Move> moves = preprocessor.findMoves(dataset, stops);
-    List<Place> places = preprocessor.findPlaces(stops);
-
-    printList(dataset);
-
-    printList(stops);
-    printList(moves);
-    printList(places);
-
-    MobilityContext context =
-        MobilityContext(stops, places, moves, date: jan01);
-    print(context.hourMatrix);
-
-    int timeTracked = stops.last.departure.millisecondsSinceEpoch -
-        jan01.millisecondsSinceEpoch;
-    int homeTime = stops
-        .where((x) => x.placeId == 0)
-        .map((x) => x.duration)
-        .reduce((a, b) => a + b)
-        .inMilliseconds;
-
-    expect(context.homeStay, homeTime / timeTracked);
-    expect(context.routineIndex, -1.0);
-    expect(context.numberOfPlaces, places.length);
-  });
-
-  test('Noerrebro several days', () {
-    List<Stop> stops = [];
-    List<Move> moves = [];
-    List<MobilityContext> contexts = [];
-
-    for (int i = 0; i < 5; i++) {
-      DateTime date = jan01.add(Duration(days: i));
-
-      /// Todays data
-      List<SingleLocationPoint> dataset = [
-        // 5 hours spent at home
-        SingleLocationPoint(loc0, date.add(Duration(hours: 0, minutes: 0))),
-        SingleLocationPoint(loc0, date.add(Duration(hours: 6, minutes: 0))),
-
-        SingleLocationPoint(loc1, date.add(Duration(hours: 8, minutes: 0))),
-        SingleLocationPoint(loc1, date.add(Duration(hours: 9, minutes: 30))),
-      ];
-
-      printList(dataset);
-
-      DataPreprocessor preprocessor = DataPreprocessor(date);
-      List<Stop> stopsToday = preprocessor.findStops(dataset);
-      stops += stopsToday;
-      moves += preprocessor.findMoves(dataset, stopsToday);
-      List<Place> places = preprocessor.findPlaces(stops);
-
-      printList(stops);
-      printList(moves);
-      printList(places);
-
-      /// Calculate and save context
-      MobilityContext context =
-          MobilityContext(stops, places, moves, contexts: contexts, date: date);
-
-      /// Get the routine index
-      double routineIndex = context.routineIndex;
-
-      /// Add this context
-      contexts.add(context);
-
-      /// Check that the routine index is correct
-      if (i == 0) {
-        expect(routineIndex, -1.0);
-      } else {
-        expect(routineIndex, 1.0);
-      }
-    }
-  });
-
-  test('Noerrebro several days with Serialization built in', () async {
-    Serializer<SingleLocationPoint> serializer =
-        await ContextGenerator.pointSerializer;
-
-    /// Clean file every time test is run
-    serializer.flush();
-
-    for (int i = 0; i < 5; i++) {
-      DateTime date = jan01.add(Duration(days: i));
-
-      /// Todays data
-      List<SingleLocationPoint> gpsPoints = [
-        // 5 hours spent at home
-        SingleLocationPoint(loc0, date.add(Duration(hours: 0, minutes: 0))),
-        SingleLocationPoint(loc0, date.add(Duration(hours: 6, minutes: 0))),
-
-        SingleLocationPoint(loc1, date.add(Duration(hours: 8, minutes: 0))),
-        SingleLocationPoint(loc1, date.add(Duration(hours: 9, minutes: 30))),
-      ];
-
-      serializer.save(gpsPoints);
-
-      /// Calculate and save context
-      MobilityContext context =
-          await ContextGenerator.generate(usePriorContexts: true, today: date);
-
-      /// Get the routine index
-      double routineIndex = context.routineIndex;
-
-      List data = await serializer.load();
-      print(routineIndex);
-    }
-  });
-
-  test('Serialize and Load', () async {
+  test('Serialize and load and multiple days', () async {
     Serializer<SingleLocationPoint> serializer =
         await ContextGenerator.pointSerializer;
 
@@ -668,9 +493,119 @@ void main() async {
       serializer.save(gpsPoints);
       dataset.addAll(gpsPoints);
 
-      /// Load
+      /// Load, make sure data from previous days is not stored.
       List<SingleLocationPoint> loaded = await serializer.load();
       expect(loaded.length, dataset.length);
+    }
+  });
+
+  test('Features: Single Stop', () async {
+    Duration timeTracked = Duration(hours: 17);
+
+    List<SingleLocationPoint> dataset = [
+      // home from 00 to 17
+      SingleLocationPoint(loc0, jan01),
+      SingleLocationPoint(loc0, jan01.add(timeTracked)),
+    ];
+
+    Serializer<SingleLocationPoint> serializer =
+        await ContextGenerator.pointSerializer;
+
+    serializer.flush();
+    serializer.save(dataset);
+
+    MobilityContext context = await ContextGenerator.generate(today: jan01);
+    expect(context.homeStay, 1.0);
+    expect(context.stops.length, 1);
+    expect(context.moves.length, 0);
+    expect(context.places.length, 1);
+  });
+
+  test('Features: Single day, multiple locations', () async {
+    Serializer<SingleLocationPoint> serializer =
+        await ContextGenerator.pointSerializer;
+
+    /// Clean file every time test is run
+    serializer.flush();
+
+    List<SingleLocationPoint> gpsPoints = [
+      // 5 hours spent at home
+      SingleLocationPoint(loc0, jan01.add(Duration(hours: 0, minutes: 0))),
+      SingleLocationPoint(loc0, jan01.add(Duration(hours: 6, minutes: 0))),
+
+      SingleLocationPoint(loc1, jan01.add(Duration(hours: 8, minutes: 0))),
+      SingleLocationPoint(loc1, jan01.add(Duration(hours: 9, minutes: 30))),
+
+      SingleLocationPoint(loc2, jan01.add(Duration(hours: 10, minutes: 0))),
+      SingleLocationPoint(loc2, jan01.add(Duration(hours: 11, minutes: 30))),
+
+      /// 1 hour spent at home
+      SingleLocationPoint(loc0, jan01.add(Duration(hours: 15, minutes: 0))),
+      SingleLocationPoint(loc0, jan01.add(Duration(hours: 16, minutes: 0))),
+
+      SingleLocationPoint(loc3, jan01.add(Duration(hours: 17, minutes: 0))),
+      SingleLocationPoint(loc3, jan01.add(Duration(hours: 18, minutes: 0))),
+
+      // 1 hour spent at home
+      SingleLocationPoint(loc0, jan01.add(Duration(hours: 20, minutes: 0))),
+      SingleLocationPoint(loc0, jan01.add(Duration(hours: 21, minutes: 0))),
+    ];
+
+    serializer.save(gpsPoints);
+
+    /// Calculate and save context
+    MobilityContext context =
+        await ContextGenerator.generate(usePriorContexts: true, today: jan01);
+
+    Duration homeTime = Duration(hours: 8);
+    Duration timeTracked = Duration(hours: gpsPoints.last.datetime.hour);
+    double homeStayTruth = homeTime.inMilliseconds / timeTracked.inMilliseconds;
+
+    expect(context.homeStay, homeStayTruth);
+    expect(context.routineIndex, -1.0);
+    expect(context.stops.length, 6);
+    expect(context.moves.length, 5);
+    expect(context.places.length, 4);
+  });
+
+  test('Features: Multiple days, multiple locations', () async {
+    Serializer<SingleLocationPoint> serializer =
+        await ContextGenerator.pointSerializer;
+
+    /// Clean file every time test is run
+    serializer.flush();
+
+    for (int i = 0; i < 5; i++) {
+      DateTime date = jan01.add(Duration(days: i));
+
+      /// Todays data
+      List<SingleLocationPoint> gpsPoints = [
+        // 5 hours spent at home
+        SingleLocationPoint(loc0, date.add(Duration(hours: 0, minutes: 0))),
+        SingleLocationPoint(loc0, date.add(Duration(hours: 6, minutes: 0))),
+
+        SingleLocationPoint(loc1, date.add(Duration(hours: 8, minutes: 0))),
+        SingleLocationPoint(loc1, date.add(Duration(hours: 9, minutes: 0))),
+      ];
+
+      serializer.save(gpsPoints);
+
+      /// Calculate and save context
+      MobilityContext context =
+          await ContextGenerator.generate(usePriorContexts: true, today: date);
+
+      double routineIndex = context.routineIndex;
+      double homeStay = context.homeStay;
+
+      expect(homeStay, 6 / 9);
+
+      // The first day the routine index should be -1,
+      // otherwise 1 since the days are exactly the same
+      if (i == 0) {
+        expect(routineIndex, -1);
+      } else {
+        expect(routineIndex, 1);
+      }
     }
   });
 }
