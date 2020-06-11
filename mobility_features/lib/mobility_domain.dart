@@ -4,20 +4,20 @@ const int HOURS_IN_A_DAY = 24;
 
 /// Abstract class to enforce functions
 /// to serialize and deserialize an object
-abstract class Serializable {
-  Map<String, dynamic> toJson();
+abstract class _Serializable {
+  Map<String, dynamic> _toJson();
 
-  Serializable.fromJson(Map<String, dynamic> json);
+  _Serializable._fromJson(Map<String, dynamic> json);
 }
 
 /// Simple abstract class to let the compiler know that an object
 /// implementing this class has a location
-abstract class Geospatial {
+abstract class _Geospatial {
   Location get location;
 }
 
 class Distance {
-  static double fromGeospatial(Geospatial a, Geospatial b) {
+  static double fromGeospatial(_Geospatial a, _Geospatial b) {
     return fromList([a.location._latitude, a.location._longitude],
         [b.location._latitude, b.location._longitude]);
   }
@@ -39,7 +39,7 @@ class Distance {
 
 /// A [Location] object contains a latitude and longitude
 /// and represents a 2D spatial coordinates
-class Location implements Serializable, Geospatial {
+class Location implements _Serializable, _Geospatial {
   double _latitude;
   double _longitude;
 
@@ -58,7 +58,7 @@ class Location implements Serializable, Geospatial {
 
   double get longitude => _longitude;
 
-  Map<String, dynamic> toJson() =>
+  Map<String, dynamic> _toJson() =>
       {"latitude": latitude, "longitude": longitude};
 
   @override
@@ -69,7 +69,7 @@ class Location implements Serializable, Geospatial {
 
 /// A [SingleLocationPoint] holds a 2D [Location] spatial data point
 /// as well as a [DateTime] value s.t. it may be temporally ordered
-class SingleLocationPoint implements Serializable, Geospatial {
+class SingleLocationPoint implements _Serializable, _Geospatial {
   Location _location;
   DateTime _datetime;
   double speed = 0;
@@ -80,23 +80,12 @@ class SingleLocationPoint implements Serializable, Geospatial {
 
   DateTime get datetime => _datetime;
 
-  Map<String, dynamic> toJson() => {
-        "location": location.toJson(),
+  Map<String, dynamic> _toJson() => {
+        "location": location._toJson(),
         "datetime": json.encode(datetime.millisecondsSinceEpoch)
       };
 
-  /// Used for reading data from disk, not gonna be used in production
-  factory SingleLocationPoint.fromMap(Map<String, dynamic> x) {
-    /// Parse, i.e. perform type check
-    double lat = double.parse(x['lat'].toString());
-    double lon = double.parse(x['lon'].toString());
-    int timeInMillis = int.parse(x['datetime'].toString());
-
-    DateTime _datetime = DateTime.fromMillisecondsSinceEpoch(timeInMillis);
-    return SingleLocationPoint(Location(lat, lon), _datetime);
-  }
-
-  factory SingleLocationPoint.fromJson(Map<String, dynamic> json) {
+  factory SingleLocationPoint._fromJson(Map<String, dynamic> json) {
     /// Parse, i.e. perform type check
     Location loc = Location.fromJson(json['location']);
     int millis = int.parse(json['datetime']);
@@ -110,9 +99,9 @@ class SingleLocationPoint implements Serializable, Geospatial {
   }
 }
 
-/// Static class for computing the centroid of a set of [Geospatial] objects
-class Cluster {
-  static Location computeCentroid(List<Geospatial> dataPoints) {
+/// Static class for computing the centroid of a set of [_Geospatial] objects
+class _Cluster {
+  static Location computeCentroid(List<_Geospatial> dataPoints) {
     double lat =
         Stats.fromData(dataPoints.map((d) => (d.location.latitude)).toList())
             .median as double;
@@ -128,19 +117,19 @@ class Cluster {
 /// A [Stop] has an assigned [placeId] which links it to a [Place].
 /// At initialization a stop will be assigned to the 'Noise' place (with id -1),
 /// and only after all places have been identified will a [Place] be assigned.
-class Stop implements Serializable, Geospatial {
+class Stop implements _Serializable, _Geospatial {
   Location _location;
   int placeId;
   DateTime _arrival, _departure;
 
-  Stop(this._location, this._arrival, this._departure, {this.placeId = -1});
+  Stop._(this._location, this._arrival, this._departure, {this.placeId = -1});
 
   /// Construct stop from point cloud
-  factory Stop.fromPoints(List<SingleLocationPoint> points,
+  factory Stop._fromPoints(List<SingleLocationPoint> points,
       {int placeId = -1}) {
     /// Calculate center
-    Location center = Cluster.computeCentroid(points);
-    return Stop(center, points.first.datetime, points.last.datetime,
+    Location center = _Cluster.computeCentroid(points);
+    return Stop._(center, points.first.datetime, points.last.datetime,
         placeId: placeId);
   }
 
@@ -187,15 +176,15 @@ class Stop implements Serializable, Geospatial {
       milliseconds:
           departure.millisecondsSinceEpoch - arrival.millisecondsSinceEpoch);
 
-  Map<String, dynamic> toJson() => {
-        "centroid": location.toJson(),
+  Map<String, dynamic> _toJson() => {
+        "centroid": location._toJson(),
         "place_id": placeId,
         "arrival": arrival.millisecondsSinceEpoch,
         "departure": departure.millisecondsSinceEpoch
       };
 
-  factory Stop.fromJson(Map<String, dynamic> json) {
-    return Stop(
+  factory Stop._fromJson(Map<String, dynamic> json) {
+    return Stop._(
         Location.fromJson(json['centroid']),
         DateTime.fromMillisecondsSinceEpoch(json['arrival']),
         DateTime.fromMillisecondsSinceEpoch(json['departure']),
@@ -215,7 +204,7 @@ class Place {
   List<Stop> _stops;
   Location _location;
 
-  Place(this._id, this._stops);
+  Place._(this._id, this._stops);
 
   Duration get duration =>
       _stops.map((s) => s.duration).reduce((a, b) => a + b);
@@ -227,7 +216,7 @@ class Place {
 
   Location get location {
     if (_location == null) {
-      _location = Cluster.computeCentroid(_stops);
+      _location = _Cluster.computeCentroid(_stops);
     }
     return _location;
   }
@@ -243,15 +232,15 @@ class Place {
 /// A [Move] is a transfer from one [Stop] to another.
 /// A set of features can be derived from this such as the haversine distance between
 /// the stops, the duration of the move, and thereby also the average travel speed.
-class Move implements Serializable {
+class Move implements _Serializable {
   Stop _stopFrom, _stopTo;
   double _distance;
 
-  Move(this._stopFrom, this._stopTo, this._distance);
+  Move._(this._stopFrom, this._stopTo, this._distance);
 
-  factory Move.fromPath(Stop a, Stop b, List<SingleLocationPoint> path) {
+  factory Move._fromPath(Stop a, Stop b, List<SingleLocationPoint> path) {
     double d = _computePathDistance(path);
-    return Move(a, b, d);
+    return Move._(a, b, d);
   }
 
   /// The haversine distance through all the points between the two stops
@@ -281,15 +270,15 @@ class Move implements Serializable {
 
   Stop get stopTo => _stopTo;
 
-  Map<String, dynamic> toJson() => {
-        "stop_from": _stopFrom.toJson(),
-        "stop_to": _stopTo.toJson(),
+  Map<String, dynamic> _toJson() => {
+        "stop_from": _stopFrom._toJson(),
+        "stop_to": _stopTo._toJson(),
         "distance": _distance
       };
 
-  factory Move.fromJson(Map<String, dynamic> _json) {
-    return Move(Stop.fromJson(_json["stop_from"]),
-        Stop.fromJson(_json["stop_to"]), _json["distance"]);
+  factory Move._fromJson(Map<String, dynamic> _json) {
+    return Move._(Stop._fromJson(_json["stop_from"]),
+        Stop._fromJson(_json["stop_to"]), _json["distance"]);
   }
 
   @override
@@ -303,15 +292,15 @@ class Move implements Serializable {
   }
 }
 
-class HourMatrix {
+class _HourMatrix {
   List<List<double>> _matrix;
   int _numberOfPlaces;
 
-  HourMatrix(this._matrix) {
+  _HourMatrix(this._matrix) {
     _numberOfPlaces = _matrix.first.length;
   }
 
-  factory HourMatrix.fromStops(List<Stop> stops, int numberOfPlaces) {
+  factory _HourMatrix.fromStops(List<Stop> stops, int numberOfPlaces) {
     /// Init 2d matrix with 24 rows and cols equal to number of places
     List<List<double>> matrix = new List.generate(
         HOURS_IN_A_DAY, (_) => new List<double>.filled(numberOfPlaces, 0.0));
@@ -326,22 +315,22 @@ class HourMatrix {
         }
       }
     }
-    return HourMatrix(matrix);
+    return _HourMatrix(matrix);
   }
 
-  factory HourMatrix.average(List<HourMatrix> matrices) {
+  factory _HourMatrix.average(List<_HourMatrix> matrices) {
     int nDays = matrices.length;
     int nPlaces = matrices.first.matrix.first.length;
     List<List<double>> avg = zeroMatrix(HOURS_IN_A_DAY, nPlaces);
 
-    for (HourMatrix m in matrices) {
+    for (_HourMatrix m in matrices) {
       for (int i = 0; i < HOURS_IN_A_DAY; i++) {
         for (int j = 0; j < nPlaces; j++) {
           avg[i][j] += m.matrix[i][j] / nDays;
         }
       }
     }
-    return HourMatrix(avg);
+    return _HourMatrix(avg);
   }
 
   List<List<double>> get matrix => _matrix;
@@ -375,7 +364,7 @@ class HourMatrix {
   }
 
   /// Calculates the error between two matrices
-  double computeError(HourMatrix other) {
+  double computeError(_HourMatrix other) {
     /// Check that dimensions match
     assert(other.matrix.length == HOURS_IN_A_DAY &&
         other.matrix.first.length == _matrix.first.length);
@@ -394,7 +383,7 @@ class HourMatrix {
   }
 
   /// Calculates the error between two matrices
-  double computeOverlap(HourMatrix other) {
+  double computeOverlap(_HourMatrix other) {
     /// Check that dimensions match
     assert(other.matrix.length == HOURS_IN_A_DAY &&
         other.matrix.first.length == _matrix.first.length);

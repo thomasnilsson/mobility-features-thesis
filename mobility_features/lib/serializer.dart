@@ -18,19 +18,19 @@ class Serializer<E> {
   Future<void> flush() async =>
       await file.writeAsString('', mode: FileMode.write);
 
-  /// Writes a list of [Serializable] to the file given in the constructor.
-  Future<void> save(List<Serializable> elements) async {
+  /// Writes a list of [_Serializable] to the file given in the constructor.
+  Future<void> save(List<_Serializable> elements) async {
     _debugPrint('Saving to file...');
     String jsonString = "";
-    for (Serializable e in elements) {
-      jsonString += json.encode(e.toJson()) + delimiter;
+    for (_Serializable e in elements) {
+      jsonString += json.encode(e._toJson()) + delimiter;
     }
     await file.writeAsString(jsonString, mode: FileMode.writeOnlyAppend);
   }
 
   /// Reads contents of the file in the constructor,
-  /// and maps it to a list of a specific [Serializable] type.
-  Future<List<Serializable>> load() async {
+  /// and maps it to a list of a specific [_Serializable] type.
+  Future<List<_Serializable>> load() async {
     /// Read file content as one big string
     String content = await file.readAsString();
 
@@ -48,15 +48,15 @@ class Serializer<E> {
       case Move:
 
         /// Filter out moves which are not recent
-        return jsonObjs.map((x) => Move.fromJson(x)).toList();
+        return jsonObjs.map((x) => Move._fromJson(x)).toList();
       case Stop:
 
         /// Filter out stops which are not recent
-        return jsonObjs.map((x) => Stop.fromJson(x)).toList();
+        return jsonObjs.map((x) => Stop._fromJson(x)).toList();
       default:
 
         /// Filter out data points not from today
-        return jsonObjs.map((x) => SingleLocationPoint.fromJson(x)).toList();
+        return jsonObjs.map((x) => SingleLocationPoint._fromJson(x)).toList();
     }
   }
 

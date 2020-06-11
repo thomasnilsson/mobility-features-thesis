@@ -11,7 +11,6 @@ import 'package:path_provider/path_provider.dart';
 
 part 'mobility_functions.dart';
 part 'mobility_domain.dart';
-part 'mobility_preprocessing.dart';
-part 'dataset.dart';
+part 'mobility_intermediate.dart';
 part 'mobility_context.dart';
 part 'serializer.dart';

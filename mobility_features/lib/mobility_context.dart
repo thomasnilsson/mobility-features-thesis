@@ -11,7 +11,7 @@ class MobilityContext {
   List<Stop> get stops => _stops;
   List<Move> _moves;
   DateTime _timestamp, date;
-  HourMatrix _hourMatrix;
+  _HourMatrix _hourMatrix;
 
   /// Features
   int _numberOfPlaces;
@@ -58,9 +58,9 @@ class MobilityContext {
 
   /// Hour matrix for the day
   /// Uses the number of allPlaces since matrices have to match other days
-  HourMatrix get hourMatrix {
+  _HourMatrix get hourMatrix {
     if (_hourMatrix == null) {
-      _hourMatrix = HourMatrix.fromStops(_stops, _allPlaces.length);
+      _hourMatrix = _HourMatrix.fromStops(_stops, _allPlaces.length);
     }
     return _hourMatrix;
   }
@@ -132,7 +132,7 @@ class MobilityContext {
         latestTime.midnight.millisecondsSinceEpoch;
 
     // Find todays home id, if no home exists today return -1.0
-    HourMatrix hm = HourMatrix.fromStops(_stops, numberOfPlaces);
+    _HourMatrix hm = _HourMatrix.fromStops(_stops, numberOfPlaces);
     if (hm.homePlaceId == -1) {
       return -1.0;
     }
@@ -203,13 +203,13 @@ class MobilityContext {
     }
 
     /// Compute the HourMatrix for each context that is older
-    List<HourMatrix> matrices = contexts
+    List<_HourMatrix> matrices = contexts
         .where((c) => c.date.isBefore(this.date))
         .map((c) => c.hourMatrix)
         .toList();
 
     /// Compute the 'average day' from the matrices
-    HourMatrix avgMatrix = HourMatrix.average(matrices);
+    _HourMatrix avgMatrix = _HourMatrix.average(matrices);
 
     /// Compute the overlap between the 'average day' and today
     return this.hourMatrix.computeOverlap(avgMatrix);
@@ -249,7 +249,7 @@ class ContextGenerator {
   }
 
   static Future<Serializer<SingleLocationPoint>> get pointSerializer async =>
-      await Serializer<SingleLocationPoint>(await _file(POINTS));
+      Serializer<SingleLocationPoint>(await _file(POINTS));
 
   static Future<MobilityContext> generate(
       {bool usePriorContexts: false, DateTime today}) async {
@@ -275,9 +275,8 @@ class ContextGenerator {
     movesAll = _movesHistoric(movesAll, today);
 
     /// Recompute stops and moves today and add them
-    DataPreprocessor dp = DataPreprocessor(DateTime.now().midnight);
-    List<Stop> stopsToday = dp.findStops(pointsToday);
-    List<Move> movesToday = dp.findMoves(pointsToday, stopsToday);
+    List<Stop> stopsToday = _findStops(pointsToday, today);
+    List<Move> movesToday = _findMoves(pointsToday, stopsToday);
     stopsAll.addAll(stopsToday);
     movesAll.addAll(movesToday);
 
@@ -288,7 +287,7 @@ class ContextGenerator {
     moveSerializer.save(movesAll);
 
     /// Find places for the period
-    List<Place> placesAll = dp.findPlaces(stopsAll);
+    List<Place> placesAll = _findPlaces(stopsAll);
 
     /// Find prior contexts, if prior is not chosen just leave empty
     List<MobilityContext> priorContexts = [];
