@@ -30,7 +30,7 @@ The location data must be saved on the device such that it can be used in the fu
 Start by instantiating the serializer:
 
 ```dart
-Serializer<SingleLocationPoint> serializer = await ContextGenerator.pointSerializer;
+MobilitySerializer<SingleLocationPoint> serializer = await ContextGenerator.pointSerializer;
 ```
 
 Next, given that the data points have been collected in a list `List<SingleLocationPoint> gpsPoint` the data is serialized like so:
