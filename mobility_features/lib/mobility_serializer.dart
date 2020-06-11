@@ -52,8 +52,8 @@ class MobilitySerializer<E> {
         return jsonObjs.map((x) => Stop._fromJson(x)).toList();
       default:
 
-        /// Filter out data points not from today
-        return jsonObjs.map((x) => SingleLocationPoint._fromJson(x)).toList();
+        /// Filter out data samples not from today
+        return jsonObjs.map((x) => LocationSample._fromJson(x)).toList();
     }
   }
 }

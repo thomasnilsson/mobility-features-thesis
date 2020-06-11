@@ -15,12 +15,12 @@ import 'package:mobility_features/mobility_features.dart';
 Location data collection is not supported by this package, for this you have to use a location plugin such as `https://pub.dev/packages/geolocator`. 
 
 From here, you can to convert from whichever Data Transfer Object is used 
-by the location plugin to a `SingleLocationPoint`. 
+by the location plugin to a `LocationSample`. 
 Below is shown an example where `Position` objects are coming in from the `GeoLocator` plugin and are being handled in the `_onData()` call-back method.
 
 ```dart
 _onData(Position d) async {
-    SingleLocationPoint(Location(d.latitude, d.longitude), d.timestamp);
+    LocationSample(Location(d.latitude, d.longitude), d.timestamp);
 }
 ```
 
@@ -30,16 +30,17 @@ The location data must be saved on the device such that it can be used in the fu
 Start by instantiating the serializer:
 
 ```dart
-MobilitySerializer<SingleLocationPoint> serializer = await ContextGenerator.pointSerializer;
-```
+MobilitySerializer<LocationSample> serializer =
+      await ContextGenerator.locationSampleSerializer;
+```      
 
-Next, given that the data points have been collected in a list `List<SingleLocationPoint> gpsPoint` the data is serialized like so:
+Next, given that the location samples have been collected in a list `List<LocationSample> locationSamples` the data is serialized like so:
 
 ```dart
-await serializer.save(gpsPoints);
+await serializer.save(locationSamples);
 ```
 
-Ideally, saving the data is done with a certain interval, such as every time 100 gps points are collected. 
+Ideally, saving the data is done with a certain interval, such as every time 100 location samples are collected. 
 
 ### Step 3: Compute features
 The Features can be computed using the static class `ContextGenerator` which uses the stored gps location data to compute the features.

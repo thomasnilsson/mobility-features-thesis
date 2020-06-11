@@ -30,13 +30,6 @@ class MobilityContext {
     date = date ?? _timestamp.midnight;
   }
 
-//  /// Public constructor, can be instantiated from outside
-//  MobilityContext(this._stops, this._allPlaces, this._moves,
-//      {this.contexts, this.date}) {
-//    _timestamp = DateTime.now();
-//    date = date ?? _timestamp.midnight;
-//  }
-
   get timestamp => _timestamp;
 
   double get routineIndex {
@@ -150,9 +143,9 @@ class MobilityContext {
     if (_stops.length < 2) {
       return 0.0;
     }
-    double latStd = Stats.fromData(_stops.map((s) => (s.location.latitude)))
+    double latStd = Stats.fromData(_stops.map((s) => (s.geoPosition.latitude)))
         .standardDeviation;
-    double lonStd = Stats.fromData(_stops.map((s) => (s.location.longitude)))
+    double lonStd = Stats.fromData(_stops.map((s) => (s.geoPosition.longitude)))
         .standardDeviation;
     return log(latStd * latStd + lonStd * lonStd + 1);
   }
@@ -232,7 +225,9 @@ class MobilityContext {
 }
 
 class ContextGenerator {
-  static const String POINTS = 'points', STOPS = 'stops', MOVES = 'moves';
+  static const String LOCATION_SAMPLES = 'location_samples',
+      STOPS = 'stops',
+      MOVES = 'moves';
 
   static Future<File> _file(String type) async {
     bool isMobile = Platform.isAndroid || Platform.isIOS;
@@ -248,18 +243,22 @@ class ContextGenerator {
     return new File('$path/$type.json');
   }
 
-  static Future<MobilitySerializer<SingleLocationPoint>> get pointSerializer async =>
-      MobilitySerializer<SingleLocationPoint>._(await _file(POINTS));
+  static Future<MobilitySerializer<LocationSample>>
+      get locationSampleSerializer async =>
+          MobilitySerializer<LocationSample>._(await _file(LOCATION_SAMPLES));
 
   static Future<MobilityContext> generate(
       {bool usePriorContexts: false, DateTime today}) async {
     /// Init serializers
-    MobilitySerializer<SingleLocationPoint> slpSerializer = await pointSerializer;
-    MobilitySerializer<Stop> stopSerializer = MobilitySerializer<Stop>._(await _file(STOPS));
-    MobilitySerializer<Move> moveSerializer = MobilitySerializer<Move>._(await _file(MOVES));
+    MobilitySerializer<LocationSample> sampleSerializer =
+        await locationSampleSerializer;
+    MobilitySerializer<Stop> stopSerializer =
+        MobilitySerializer<Stop>._(await _file(STOPS));
+    MobilitySerializer<Move> moveSerializer =
+        MobilitySerializer<Move>._(await _file(MOVES));
 
     /// Load data from disk
-    List<SingleLocationPoint> pointsToday = await slpSerializer.load();
+    List<LocationSample> samplesToday = await sampleSerializer.load();
     List<Stop> stopsAll = await stopSerializer.load();
     List<Move> movesAll = await moveSerializer.load();
 
@@ -267,16 +266,16 @@ class ContextGenerator {
     today = today ?? DateTime.now();
     today = today.midnight;
 
-    // Filter out old points
-    pointsToday = _filterPoints(pointsToday, today);
+    // Filter out old samples
+    samplesToday = _filterSamples(samplesToday, today);
 
     // Filter out todays stops, and stops older than 28 days
     stopsAll = _stopsHistoric(stopsAll, today);
     movesAll = _movesHistoric(movesAll, today);
 
     /// Recompute stops and moves today and add them
-    List<Stop> stopsToday = _findStops(pointsToday, today);
-    List<Move> movesToday = _findMoves(pointsToday, stopsToday);
+    List<Stop> stopsToday = _findStops(samplesToday, today);
+    List<Move> movesToday = _findMoves(samplesToday, stopsToday);
     stopsAll.addAll(stopsToday);
     movesAll.addAll(movesToday);
 
@@ -308,8 +307,8 @@ class ContextGenerator {
         contexts: priorContexts, date: today);
   }
 
-  static List<SingleLocationPoint> _filterPoints(
-      List<SingleLocationPoint> X, DateTime date) {
+  static List<LocationSample> _filterSamples(
+      List<LocationSample> X, DateTime date) {
     return X.where((x) => x.datetime.midnight == date).toList();
   }
 

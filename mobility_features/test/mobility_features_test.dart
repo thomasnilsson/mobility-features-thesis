@@ -29,16 +29,16 @@ void main() async {
   DateTime jan01 = DateTime(2020, 01, 01);
 
   // Poppelgade 7, home
-  Location loc0 = Location(55.692035, 12.558575);
+  GeoPosition loc0 = GeoPosition(55.692035, 12.558575);
 
   // Falkoner Alle
-  Location loc1 = Location(55.685329, 12.538601);
+  GeoPosition loc1 = GeoPosition(55.685329, 12.538601);
 
   // Dronning Louises Bro
-  Location loc2 = Location(55.686723, 12.563769);
+  GeoPosition loc2 = GeoPosition(55.686723, 12.563769);
 
   // Assistentens Kirkegaard
-  Location loc3 = Location(55.690862, 12.549545);
+  GeoPosition loc3 = GeoPosition(55.690862, 12.549545);
 
   /// This test  verifies that the 'midnight' extension
   /// works for two DateTime objects on the same date.
@@ -53,12 +53,12 @@ void main() async {
   });
 
   group("Mobility Context Tests", () {
-    test('Serialize and load three data points', () async {
-      MobilitySerializer<SingleLocationPoint> serializer =
-          await ContextGenerator.pointSerializer;
+    test('Serialize and load three location samples', () async {
+      MobilitySerializer<LocationSample> serializer =
+          await ContextGenerator.locationSampleSerializer;
 
-      SingleLocationPoint p1 =
-          SingleLocationPoint(Location(12.345, 98.765), DateTime(2020, 02, 16));
+      LocationSample p1 =
+          LocationSample(GeoPosition(12.345, 98.765), DateTime(2020, 02, 16));
 
       await serializer.flush();
       await serializer.save([p1, p1, p1]);
@@ -67,32 +67,32 @@ void main() async {
     });
 
     test('Serialize and load and multiple days', () async {
-      MobilitySerializer<SingleLocationPoint> serializer =
-          await ContextGenerator.pointSerializer;
+      MobilitySerializer<LocationSample> serializer =
+          await ContextGenerator.locationSampleSerializer;
 
       /// Clean file every time test is run
       await serializer.flush();
-      List<SingleLocationPoint> dataset = [];
+      List<LocationSample> dataset = [];
 
       for (int i = 0; i < 5; i++) {
         DateTime date = jan01.add(Duration(days: i));
 
         /// Todays data
-        List<SingleLocationPoint> gpsPoints = [
+        List<LocationSample> locationSamples = [
           // 5 hours spent at home
-          SingleLocationPoint(loc0, date.add(Duration(hours: 0, minutes: 0))),
-          SingleLocationPoint(loc0, date.add(Duration(hours: 6, minutes: 0))),
+          LocationSample(loc0, date.add(Duration(hours: 0, minutes: 0))),
+          LocationSample(loc0, date.add(Duration(hours: 6, minutes: 0))),
 
-          SingleLocationPoint(loc1, date.add(Duration(hours: 8, minutes: 0))),
-          SingleLocationPoint(loc1, date.add(Duration(hours: 9, minutes: 30))),
+          LocationSample(loc1, date.add(Duration(hours: 8, minutes: 0))),
+          LocationSample(loc1, date.add(Duration(hours: 9, minutes: 30))),
         ];
 
         /// Save
-        await serializer.save(gpsPoints);
-        dataset.addAll(gpsPoints);
+        await serializer.save(locationSamples);
+        dataset.addAll(locationSamples);
 
         /// Load, make sure data from previous days is not stored.
-        List<SingleLocationPoint> loaded = await serializer.load();
+        List<LocationSample> loaded = await serializer.load();
         expect(loaded.length, dataset.length);
       }
     });
@@ -100,14 +100,14 @@ void main() async {
     test('Features: Single Stop', () async {
       Duration timeTracked = Duration(hours: 17);
 
-      List<SingleLocationPoint> dataset = [
+      List<LocationSample> dataset = [
         // home from 00 to 17
-        SingleLocationPoint(loc0, jan01),
-        SingleLocationPoint(loc0, jan01.add(timeTracked)),
+        LocationSample(loc0, jan01),
+        LocationSample(loc0, jan01.add(timeTracked)),
       ];
 
-      MobilitySerializer<SingleLocationPoint> serializer =
-          await ContextGenerator.pointSerializer;
+      MobilitySerializer<LocationSample> serializer =
+          await ContextGenerator.locationSampleSerializer;
 
       serializer.flush();
       await serializer.save(dataset);
@@ -120,43 +120,43 @@ void main() async {
     });
 
     test('Features: Single day, multiple locations', () async {
-      MobilitySerializer<SingleLocationPoint> serializer =
-          await ContextGenerator.pointSerializer;
+      MobilitySerializer<LocationSample> serializer =
+          await ContextGenerator.locationSampleSerializer;
 
       /// Clean file every time test is run
       serializer.flush();
 
-      List<SingleLocationPoint> gpsPoints = [
+      List<LocationSample> locationSamples = [
         // 5 hours spent at home
-        SingleLocationPoint(loc0, jan01.add(Duration(hours: 0, minutes: 0))),
-        SingleLocationPoint(loc0, jan01.add(Duration(hours: 6, minutes: 0))),
+        LocationSample(loc0, jan01.add(Duration(hours: 0, minutes: 0))),
+        LocationSample(loc0, jan01.add(Duration(hours: 6, minutes: 0))),
 
-        SingleLocationPoint(loc1, jan01.add(Duration(hours: 8, minutes: 0))),
-        SingleLocationPoint(loc1, jan01.add(Duration(hours: 9, minutes: 30))),
+        LocationSample(loc1, jan01.add(Duration(hours: 8, minutes: 0))),
+        LocationSample(loc1, jan01.add(Duration(hours: 9, minutes: 30))),
 
-        SingleLocationPoint(loc2, jan01.add(Duration(hours: 10, minutes: 0))),
-        SingleLocationPoint(loc2, jan01.add(Duration(hours: 11, minutes: 30))),
+        LocationSample(loc2, jan01.add(Duration(hours: 10, minutes: 0))),
+        LocationSample(loc2, jan01.add(Duration(hours: 11, minutes: 30))),
 
         /// 1 hour spent at home
-        SingleLocationPoint(loc0, jan01.add(Duration(hours: 15, minutes: 0))),
-        SingleLocationPoint(loc0, jan01.add(Duration(hours: 16, minutes: 0))),
+        LocationSample(loc0, jan01.add(Duration(hours: 15, minutes: 0))),
+        LocationSample(loc0, jan01.add(Duration(hours: 16, minutes: 0))),
 
-        SingleLocationPoint(loc3, jan01.add(Duration(hours: 17, minutes: 0))),
-        SingleLocationPoint(loc3, jan01.add(Duration(hours: 18, minutes: 0))),
+        LocationSample(loc3, jan01.add(Duration(hours: 17, minutes: 0))),
+        LocationSample(loc3, jan01.add(Duration(hours: 18, minutes: 0))),
 
         // 1 hour spent at home
-        SingleLocationPoint(loc0, jan01.add(Duration(hours: 20, minutes: 0))),
-        SingleLocationPoint(loc0, jan01.add(Duration(hours: 21, minutes: 0))),
+        LocationSample(loc0, jan01.add(Duration(hours: 20, minutes: 0))),
+        LocationSample(loc0, jan01.add(Duration(hours: 21, minutes: 0))),
       ];
 
-      await serializer.save(gpsPoints);
+      await serializer.save(locationSamples);
 
       /// Calculate and save context
       MobilityContext context =
           await ContextGenerator.generate(usePriorContexts: true, today: jan01);
 
       Duration homeTime = Duration(hours: 8);
-      Duration timeTracked = Duration(hours: gpsPoints.last.datetime.hour);
+      Duration timeTracked = Duration(hours: locationSamples.last.datetime.hour);
       double homeStayTruth =
           homeTime.inMilliseconds / timeTracked.inMilliseconds;
 
@@ -169,8 +169,8 @@ void main() async {
     });
 
     test('Features: Multiple days, multiple locations', () async {
-      MobilitySerializer<SingleLocationPoint> serializer =
-          await ContextGenerator.pointSerializer;
+      MobilitySerializer<LocationSample> serializer =
+          await ContextGenerator.locationSampleSerializer;
 
       /// Clean file every time test is run
       serializer.flush();
@@ -179,16 +179,16 @@ void main() async {
         DateTime date = jan01.add(Duration(days: i));
 
         /// Todays data
-        List<SingleLocationPoint> gpsPoints = [
+        List<LocationSample> locationSamples = [
           // 5 hours spent at home
-          SingleLocationPoint(loc0, date.add(Duration(hours: 0, minutes: 0))),
-          SingleLocationPoint(loc0, date.add(Duration(hours: 6, minutes: 0))),
+          LocationSample(loc0, date.add(Duration(hours: 0, minutes: 0))),
+          LocationSample(loc0, date.add(Duration(hours: 6, minutes: 0))),
 
-          SingleLocationPoint(loc1, date.add(Duration(hours: 8, minutes: 0))),
-          SingleLocationPoint(loc1, date.add(Duration(hours: 9, minutes: 0))),
+          LocationSample(loc1, date.add(Duration(hours: 8, minutes: 0))),
+          LocationSample(loc1, date.add(Duration(hours: 9, minutes: 0))),
         ];
 
-        await serializer.save(gpsPoints);
+        await serializer.save(locationSamples);
 
         /// Calculate and save context
         MobilityContext context = await ContextGenerator.generate(
