@@ -1,7 +1,7 @@
 library mobility_features_lib;
 
 import 'dart:math';
-import 'package:simple_cluster/src/dbscan.dart';
+import 'package:simple_cluster/simple_cluster.dart';
 import 'package:stats/stats.dart';
 import 'dart:core';
 import 'dart:convert';
