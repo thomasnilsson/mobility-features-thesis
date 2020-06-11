@@ -1,9 +1,11 @@
-import 'mobility_features_test_lib.dart';
+library mobility_test;
+
 import 'package:mobility_features/mobility_features_lib.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'dart:convert';
 import 'dart:io';
-import 'package:collection/collection.dart';
+import 'dart:convert';
+import 'package:flutter_test/flutter_test.dart';
+
+part 'test_utils.dart';
 
 Duration takeTime(DateTime start, DateTime end) {
   int ms = end.millisecondsSinceEpoch - start.millisecondsSinceEpoch;
@@ -13,7 +15,6 @@ Duration takeTime(DateTime start, DateTime end) {
 void main() async {
   String datasetPath = 'lib/data/example-multi.json';
   String testDataDir = 'test/data';
-  Function listEq = const ListEquality().equals;
 
   List<DateTime> dates = [
     DateTime(2020, 02, 12),
@@ -38,11 +39,174 @@ void main() async {
   // Assistentens Kirkegaard
   Location loc3 = Location(55.690862, 12.549545);
 
+  /// This test  verifies that the 'midnight' extension
+  /// works for two DateTime objects on the same date.
   test('Datetime extension', () async {
     DateTime d1 = DateTime.parse('2020-02-12 09:30:00.000');
     DateTime d2 = DateTime.parse('2020-02-12 13:31:00.400');
-    assert(d1.midnight == d2.midnight);
+    expect(d1.midnight, d2.midnight);
+
+    DateTime d3 = DateTime.parse('2020-02-13 09:30:00.000');
+    expect(d1.midnight, isNot(d3.midnight));
   });
+
+  group("Mobility Context Tests", () {
+    test('Serialize and load three data points', () async {
+      Serializer<SingleLocationPoint> serializer =
+          await ContextGenerator.pointSerializer;
+
+      SingleLocationPoint p1 =
+          SingleLocationPoint(Location(12.345, 98.765), DateTime(2020, 02, 16));
+
+      await serializer.flush();
+      await serializer.save([p1, p1, p1]);
+      List loaded = await serializer.load();
+      expect(loaded.length, 3);
+    });
+
+    test('Serialize and load and multiple days', () async {
+      Serializer<SingleLocationPoint> serializer =
+          await ContextGenerator.pointSerializer;
+
+      /// Clean file every time test is run
+      await serializer.flush();
+      List<SingleLocationPoint> dataset = [];
+
+      for (int i = 0; i < 5; i++) {
+        DateTime date = jan01.add(Duration(days: i));
+
+        /// Todays data
+        List<SingleLocationPoint> gpsPoints = [
+          // 5 hours spent at home
+          SingleLocationPoint(loc0, date.add(Duration(hours: 0, minutes: 0))),
+          SingleLocationPoint(loc0, date.add(Duration(hours: 6, minutes: 0))),
+
+          SingleLocationPoint(loc1, date.add(Duration(hours: 8, minutes: 0))),
+          SingleLocationPoint(loc1, date.add(Duration(hours: 9, minutes: 30))),
+        ];
+
+        /// Save
+        serializer.save(gpsPoints);
+        dataset.addAll(gpsPoints);
+
+        /// Load, make sure data from previous days is not stored.
+        List<SingleLocationPoint> loaded = await serializer.load();
+        expect(loaded.length, dataset.length);
+      }
+    });
+
+    test('Features: Single Stop', () async {
+      Duration timeTracked = Duration(hours: 17);
+
+      List<SingleLocationPoint> dataset = [
+        // home from 00 to 17
+        SingleLocationPoint(loc0, jan01),
+        SingleLocationPoint(loc0, jan01.add(timeTracked)),
+      ];
+
+      Serializer<SingleLocationPoint> serializer =
+          await ContextGenerator.pointSerializer;
+
+      serializer.flush();
+      serializer.save(dataset);
+
+      MobilityContext context = await ContextGenerator.generate(today: jan01);
+      expect(context.homeStay, 1.0);
+      expect(context.stops.length, 1);
+      expect(context.moves.length, 0);
+      expect(context.places.length, 1);
+    });
+
+    test('Features: Single day, multiple locations', () async {
+      Serializer<SingleLocationPoint> serializer =
+          await ContextGenerator.pointSerializer;
+
+      /// Clean file every time test is run
+      serializer.flush();
+
+      List<SingleLocationPoint> gpsPoints = [
+        // 5 hours spent at home
+        SingleLocationPoint(loc0, jan01.add(Duration(hours: 0, minutes: 0))),
+        SingleLocationPoint(loc0, jan01.add(Duration(hours: 6, minutes: 0))),
+
+        SingleLocationPoint(loc1, jan01.add(Duration(hours: 8, minutes: 0))),
+        SingleLocationPoint(loc1, jan01.add(Duration(hours: 9, minutes: 30))),
+
+        SingleLocationPoint(loc2, jan01.add(Duration(hours: 10, minutes: 0))),
+        SingleLocationPoint(loc2, jan01.add(Duration(hours: 11, minutes: 30))),
+
+        /// 1 hour spent at home
+        SingleLocationPoint(loc0, jan01.add(Duration(hours: 15, minutes: 0))),
+        SingleLocationPoint(loc0, jan01.add(Duration(hours: 16, minutes: 0))),
+
+        SingleLocationPoint(loc3, jan01.add(Duration(hours: 17, minutes: 0))),
+        SingleLocationPoint(loc3, jan01.add(Duration(hours: 18, minutes: 0))),
+
+        // 1 hour spent at home
+        SingleLocationPoint(loc0, jan01.add(Duration(hours: 20, minutes: 0))),
+        SingleLocationPoint(loc0, jan01.add(Duration(hours: 21, minutes: 0))),
+      ];
+
+      serializer.save(gpsPoints);
+
+      /// Calculate and save context
+      MobilityContext context =
+          await ContextGenerator.generate(usePriorContexts: true, today: jan01);
+
+      Duration homeTime = Duration(hours: 8);
+      Duration timeTracked = Duration(hours: gpsPoints.last.datetime.hour);
+      double homeStayTruth =
+          homeTime.inMilliseconds / timeTracked.inMilliseconds;
+
+      expect(context.homeStay, homeStayTruth);
+      expect(context.routineIndex, -1.0);
+      expect(context.stops.length, 6);
+      expect(context.moves.length, 5);
+      expect(context.places.length, 4);
+    });
+
+    test('Features: Multiple days, multiple locations', () async {
+      Serializer<SingleLocationPoint> serializer =
+          await ContextGenerator.pointSerializer;
+
+      /// Clean file every time test is run
+      serializer.flush();
+
+      for (int i = 0; i < 5; i++) {
+        DateTime date = jan01.add(Duration(days: i));
+
+        /// Todays data
+        List<SingleLocationPoint> gpsPoints = [
+          // 5 hours spent at home
+          SingleLocationPoint(loc0, date.add(Duration(hours: 0, minutes: 0))),
+          SingleLocationPoint(loc0, date.add(Duration(hours: 6, minutes: 0))),
+
+          SingleLocationPoint(loc1, date.add(Duration(hours: 8, minutes: 0))),
+          SingleLocationPoint(loc1, date.add(Duration(hours: 9, minutes: 0))),
+        ];
+
+        serializer.save(gpsPoints);
+
+        /// Calculate and save context
+        MobilityContext context = await ContextGenerator.generate(
+            usePriorContexts: true, today: date);
+
+        double routineIndex = context.routineIndex;
+        double homeStay = context.homeStay;
+
+        expect(homeStay, 6 / 9);
+
+        // The first day the routine index should be -1,
+        // otherwise 1 since the days are exactly the same
+        if (i == 0) {
+          expect(routineIndex, -1);
+        } else {
+          expect(routineIndex, 1);
+        }
+      }
+    });
+  });
+  ///////
 
   test('Serialization of stops and moves', () async {
     /// Create a [SingleLocationPoint] manually
@@ -158,7 +322,7 @@ void main() async {
   });
 
   test('write to file', () async {
-    File f = new File('test/test_file.txt');
+    File f = new File('test/data/test_file.txt');
     await f.writeAsString('test 123 123 123');
 
     String res = await f.readAsString();
@@ -453,159 +617,5 @@ void main() async {
     printList(stops);
     printList(moves);
     printList(places);
-  });
-
-  test('Serialize and load three data points', () async {
-    Serializer<SingleLocationPoint> serializer =
-        await ContextGenerator.pointSerializer;
-
-    SingleLocationPoint p1 =
-        SingleLocationPoint(Location(12.345, 98.765), DateTime(2020, 02, 16));
-
-    await serializer.flush();
-    await serializer.save([p1, p1, p1]);
-    List loaded = await serializer.load();
-    expect(loaded.length, 3);
-  });
-
-  test('Serialize and load and multiple days', () async {
-    Serializer<SingleLocationPoint> serializer =
-        await ContextGenerator.pointSerializer;
-
-    /// Clean file every time test is run
-    await serializer.flush();
-    List<SingleLocationPoint> dataset = [];
-
-    for (int i = 0; i < 5; i++) {
-      DateTime date = jan01.add(Duration(days: i));
-
-      /// Todays data
-      List<SingleLocationPoint> gpsPoints = [
-        // 5 hours spent at home
-        SingleLocationPoint(loc0, date.add(Duration(hours: 0, minutes: 0))),
-        SingleLocationPoint(loc0, date.add(Duration(hours: 6, minutes: 0))),
-
-        SingleLocationPoint(loc1, date.add(Duration(hours: 8, minutes: 0))),
-        SingleLocationPoint(loc1, date.add(Duration(hours: 9, minutes: 30))),
-      ];
-
-      /// Save
-      serializer.save(gpsPoints);
-      dataset.addAll(gpsPoints);
-
-      /// Load, make sure data from previous days is not stored.
-      List<SingleLocationPoint> loaded = await serializer.load();
-      expect(loaded.length, dataset.length);
-    }
-  });
-
-  test('Features: Single Stop', () async {
-    Duration timeTracked = Duration(hours: 17);
-
-    List<SingleLocationPoint> dataset = [
-      // home from 00 to 17
-      SingleLocationPoint(loc0, jan01),
-      SingleLocationPoint(loc0, jan01.add(timeTracked)),
-    ];
-
-    Serializer<SingleLocationPoint> serializer =
-        await ContextGenerator.pointSerializer;
-
-    serializer.flush();
-    serializer.save(dataset);
-
-    MobilityContext context = await ContextGenerator.generate(today: jan01);
-    expect(context.homeStay, 1.0);
-    expect(context.stops.length, 1);
-    expect(context.moves.length, 0);
-    expect(context.places.length, 1);
-  });
-
-  test('Features: Single day, multiple locations', () async {
-    Serializer<SingleLocationPoint> serializer =
-        await ContextGenerator.pointSerializer;
-
-    /// Clean file every time test is run
-    serializer.flush();
-
-    List<SingleLocationPoint> gpsPoints = [
-      // 5 hours spent at home
-      SingleLocationPoint(loc0, jan01.add(Duration(hours: 0, minutes: 0))),
-      SingleLocationPoint(loc0, jan01.add(Duration(hours: 6, minutes: 0))),
-
-      SingleLocationPoint(loc1, jan01.add(Duration(hours: 8, minutes: 0))),
-      SingleLocationPoint(loc1, jan01.add(Duration(hours: 9, minutes: 30))),
-
-      SingleLocationPoint(loc2, jan01.add(Duration(hours: 10, minutes: 0))),
-      SingleLocationPoint(loc2, jan01.add(Duration(hours: 11, minutes: 30))),
-
-      /// 1 hour spent at home
-      SingleLocationPoint(loc0, jan01.add(Duration(hours: 15, minutes: 0))),
-      SingleLocationPoint(loc0, jan01.add(Duration(hours: 16, minutes: 0))),
-
-      SingleLocationPoint(loc3, jan01.add(Duration(hours: 17, minutes: 0))),
-      SingleLocationPoint(loc3, jan01.add(Duration(hours: 18, minutes: 0))),
-
-      // 1 hour spent at home
-      SingleLocationPoint(loc0, jan01.add(Duration(hours: 20, minutes: 0))),
-      SingleLocationPoint(loc0, jan01.add(Duration(hours: 21, minutes: 0))),
-    ];
-
-    serializer.save(gpsPoints);
-
-    /// Calculate and save context
-    MobilityContext context =
-        await ContextGenerator.generate(usePriorContexts: true, today: jan01);
-
-    Duration homeTime = Duration(hours: 8);
-    Duration timeTracked = Duration(hours: gpsPoints.last.datetime.hour);
-    double homeStayTruth = homeTime.inMilliseconds / timeTracked.inMilliseconds;
-
-    expect(context.homeStay, homeStayTruth);
-    expect(context.routineIndex, -1.0);
-    expect(context.stops.length, 6);
-    expect(context.moves.length, 5);
-    expect(context.places.length, 4);
-  });
-
-  test('Features: Multiple days, multiple locations', () async {
-    Serializer<SingleLocationPoint> serializer =
-        await ContextGenerator.pointSerializer;
-
-    /// Clean file every time test is run
-    serializer.flush();
-
-    for (int i = 0; i < 5; i++) {
-      DateTime date = jan01.add(Duration(days: i));
-
-      /// Todays data
-      List<SingleLocationPoint> gpsPoints = [
-        // 5 hours spent at home
-        SingleLocationPoint(loc0, date.add(Duration(hours: 0, minutes: 0))),
-        SingleLocationPoint(loc0, date.add(Duration(hours: 6, minutes: 0))),
-
-        SingleLocationPoint(loc1, date.add(Duration(hours: 8, minutes: 0))),
-        SingleLocationPoint(loc1, date.add(Duration(hours: 9, minutes: 0))),
-      ];
-
-      serializer.save(gpsPoints);
-
-      /// Calculate and save context
-      MobilityContext context =
-          await ContextGenerator.generate(usePriorContexts: true, today: date);
-
-      double routineIndex = context.routineIndex;
-      double homeStay = context.homeStay;
-
-      expect(homeStay, 6 / 9);
-
-      // The first day the routine index should be -1,
-      // otherwise 1 since the days are exactly the same
-      if (i == 0) {
-        expect(routineIndex, -1);
-      } else {
-        expect(routineIndex, 1);
-      }
-    }
   });
 }
