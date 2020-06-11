@@ -30,12 +30,12 @@ class MobilityContext {
     date = date ?? _timestamp.midnight;
   }
 
-  /// Public constructor, can be instantiated from outside
-  MobilityContext(this._stops, this._allPlaces, this._moves,
-      {this.contexts, this.date}) {
-    _timestamp = DateTime.now();
-    date = date ?? _timestamp.midnight;
-  }
+//  /// Public constructor, can be instantiated from outside
+//  MobilityContext(this._stops, this._allPlaces, this._moves,
+//      {this.contexts, this.date}) {
+//    _timestamp = DateTime.now();
+//    date = date ?? _timestamp.midnight;
+//  }
 
   get timestamp => _timestamp;
 
@@ -263,10 +263,14 @@ class ContextGenerator {
     List<Stop> stopsAll = await stopSerializer.load();
     List<Move> movesAll = await moveSerializer.load();
 
+    // Define today as the midnight time
+    today = today ?? DateTime.now();
+    today = today.midnight;
+
     // Filter out old points
-    // Filter out todays stops, and stops older than 28 days
-    today = today ?? DateTime.now().midnight;
     pointsToday = _filterPoints(pointsToday, today);
+
+    // Filter out todays stops, and stops older than 28 days
     stopsAll = _stopsHistoric(stopsAll, today);
     movesAll = _movesHistoric(movesAll, today);
 
@@ -296,12 +300,12 @@ class ContextGenerator {
         List<Stop> stopsOnDate = _stopsForDate(stopsAll, date);
         List<Move> movesOnDate = _movesForDate(movesAll, date);
         MobilityContext mc =
-            MobilityContext(stopsOnDate, placesAll, movesOnDate, date: date);
+            MobilityContext._(stopsOnDate, placesAll, movesOnDate, date: date);
         priorContexts.add(mc);
       }
     }
 
-    return MobilityContext(stopsToday, placesAll, movesToday,
+    return MobilityContext._(stopsToday, placesAll, movesToday,
         contexts: priorContexts, date: today);
   }
 
