@@ -40,7 +40,7 @@ Next, given that the location samples have been collected in a list `List<Locati
 await serializer.save(locationSamples);
 ```
 
-Ideally, saving the data is done with a certain interval, such as every time 100 location samples are collected. 
+Ideally, saving the data is done with a certain interval, such as every time 100 `LocationSamples` are collected. 
 
 ### Step 3: Compute features
 The Features can be computed using the static class `ContextGenerator` which uses the stored gps location data to compute the features.

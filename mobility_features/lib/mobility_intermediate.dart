@@ -1,4 +1,4 @@
-part of mobility_features_lib;
+part of mobility_features;
 
 /// Find the stops in a sequence of gps data points
 List<Stop> _findStops(List<LocationSample> data, DateTime date,

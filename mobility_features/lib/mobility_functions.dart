@@ -1,4 +1,4 @@
-part of mobility_features_lib;
+part of mobility_features;
 
 /// Returns an [Iterable] of [List]s where the nth element in the returned
 /// iterable contains the nth element from every Iterable in [iterables]. The

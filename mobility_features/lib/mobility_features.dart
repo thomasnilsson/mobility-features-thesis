@@ -1,4 +1,4 @@
-library mobility_features_lib;
+library mobility_features;
 
 import 'dart:math';
 import 'package:simple_cluster/simple_cluster.dart';

@@ -25,20 +25,19 @@ void main() async {
     DateTime(2020, 02, 17),
   ];
 
-
   DateTime jan01 = DateTime(2020, 01, 01);
 
   // Poppelgade 7, home
-  GeoPosition loc0 = GeoPosition(55.692035, 12.558575);
+  GeoPosition pos1 = GeoPosition(55.692035, 12.558575);
 
   // Falkoner Alle
-  GeoPosition loc1 = GeoPosition(55.685329, 12.538601);
+  GeoPosition pos2 = GeoPosition(55.685329, 12.538601);
 
   // Dronning Louises Bro
-  GeoPosition loc2 = GeoPosition(55.686723, 12.563769);
+  GeoPosition pos3 = GeoPosition(55.686723, 12.563769);
 
   // Assistentens Kirkegaard
-  GeoPosition loc3 = GeoPosition(55.690862, 12.549545);
+  GeoPosition pos4 = GeoPosition(55.690862, 12.549545);
 
   /// This test  verifies that the 'midnight' extension
   /// works for two DateTime objects on the same date.
@@ -49,7 +48,6 @@ void main() async {
 
     DateTime d3 = DateTime.parse('2020-02-13 09:30:00.000');
     expect(d1.midnight, isNot(d3.midnight));
-
   });
 
   group("Mobility Context Tests", () {
@@ -57,13 +55,15 @@ void main() async {
       MobilitySerializer<LocationSample> serializer =
           await ContextGenerator.locationSampleSerializer;
 
-      LocationSample p1 =
-          LocationSample(GeoPosition(12.345, 98.765), DateTime(2020, 02, 16));
+      LocationSample x =
+          LocationSample(GeoPosition(123.456, 123.456), DateTime(2020, 01, 01));
+
+      List<LocationSample> dataset = [x, x, x];
 
       await serializer.flush();
-      await serializer.save([p1, p1, p1]);
+      await serializer.save(dataset);
       List loaded = await serializer.load();
-      expect(loaded.length, 3);
+      expect(loaded.length, dataset.length);
     });
 
     test('Serialize and load and multiple days', () async {
@@ -80,11 +80,11 @@ void main() async {
         /// Todays data
         List<LocationSample> locationSamples = [
           // 5 hours spent at home
-          LocationSample(loc0, date.add(Duration(hours: 0, minutes: 0))),
-          LocationSample(loc0, date.add(Duration(hours: 6, minutes: 0))),
+          LocationSample(pos1, date.add(Duration(hours: 0, minutes: 0))),
+          LocationSample(pos1, date.add(Duration(hours: 6, minutes: 0))),
 
-          LocationSample(loc1, date.add(Duration(hours: 8, minutes: 0))),
-          LocationSample(loc1, date.add(Duration(hours: 9, minutes: 30))),
+          LocationSample(pos2, date.add(Duration(hours: 8, minutes: 0))),
+          LocationSample(pos2, date.add(Duration(hours: 9, minutes: 30))),
         ];
 
         /// Save
@@ -102,8 +102,8 @@ void main() async {
 
       List<LocationSample> dataset = [
         // home from 00 to 17
-        LocationSample(loc0, jan01),
-        LocationSample(loc0, jan01.add(timeTracked)),
+        LocationSample(pos1, jan01),
+        LocationSample(pos1, jan01.add(timeTracked)),
       ];
 
       MobilitySerializer<LocationSample> serializer =
@@ -128,25 +128,25 @@ void main() async {
 
       List<LocationSample> locationSamples = [
         // 5 hours spent at home
-        LocationSample(loc0, jan01.add(Duration(hours: 0, minutes: 0))),
-        LocationSample(loc0, jan01.add(Duration(hours: 6, minutes: 0))),
+        LocationSample(pos1, jan01.add(Duration(hours: 0, minutes: 0))),
+        LocationSample(pos1, jan01.add(Duration(hours: 6, minutes: 0))),
 
-        LocationSample(loc1, jan01.add(Duration(hours: 8, minutes: 0))),
-        LocationSample(loc1, jan01.add(Duration(hours: 9, minutes: 30))),
+        LocationSample(pos2, jan01.add(Duration(hours: 8, minutes: 0))),
+        LocationSample(pos2, jan01.add(Duration(hours: 9, minutes: 30))),
 
-        LocationSample(loc2, jan01.add(Duration(hours: 10, minutes: 0))),
-        LocationSample(loc2, jan01.add(Duration(hours: 11, minutes: 30))),
+        LocationSample(pos3, jan01.add(Duration(hours: 10, minutes: 0))),
+        LocationSample(pos3, jan01.add(Duration(hours: 11, minutes: 30))),
 
         /// 1 hour spent at home
-        LocationSample(loc0, jan01.add(Duration(hours: 15, minutes: 0))),
-        LocationSample(loc0, jan01.add(Duration(hours: 16, minutes: 0))),
+        LocationSample(pos1, jan01.add(Duration(hours: 15, minutes: 0))),
+        LocationSample(pos1, jan01.add(Duration(hours: 16, minutes: 0))),
 
-        LocationSample(loc3, jan01.add(Duration(hours: 17, minutes: 0))),
-        LocationSample(loc3, jan01.add(Duration(hours: 18, minutes: 0))),
+        LocationSample(pos4, jan01.add(Duration(hours: 17, minutes: 0))),
+        LocationSample(pos4, jan01.add(Duration(hours: 18, minutes: 0))),
 
         // 1 hour spent at home
-        LocationSample(loc0, jan01.add(Duration(hours: 20, minutes: 0))),
-        LocationSample(loc0, jan01.add(Duration(hours: 21, minutes: 0))),
+        LocationSample(pos1, jan01.add(Duration(hours: 20, minutes: 0))),
+        LocationSample(pos1, jan01.add(Duration(hours: 21, minutes: 0))),
       ];
 
       await serializer.save(locationSamples);
@@ -156,7 +156,8 @@ void main() async {
           await ContextGenerator.generate(usePriorContexts: true, today: jan01);
 
       Duration homeTime = Duration(hours: 8);
-      Duration timeTracked = Duration(hours: locationSamples.last.datetime.hour);
+      Duration timeTracked =
+          Duration(hours: locationSamples.last.datetime.hour);
       double homeStayTruth =
           homeTime.inMilliseconds / timeTracked.inMilliseconds;
 
@@ -165,7 +166,6 @@ void main() async {
       expect(context.stops.length, 6);
       expect(context.moves.length, 5);
       expect(context.places.length, 4);
-
     });
 
     test('Features: Multiple days, multiple locations', () async {
@@ -181,11 +181,11 @@ void main() async {
         /// Todays data
         List<LocationSample> locationSamples = [
           // 5 hours spent at home
-          LocationSample(loc0, date.add(Duration(hours: 0, minutes: 0))),
-          LocationSample(loc0, date.add(Duration(hours: 6, minutes: 0))),
+          LocationSample(pos1, date.add(Duration(hours: 0, minutes: 0))),
+          LocationSample(pos1, date.add(Duration(hours: 6, minutes: 0))),
 
-          LocationSample(loc1, date.add(Duration(hours: 8, minutes: 0))),
-          LocationSample(loc1, date.add(Duration(hours: 9, minutes: 0))),
+          LocationSample(pos2, date.add(Duration(hours: 8, minutes: 0))),
+          LocationSample(pos2, date.add(Duration(hours: 9, minutes: 0))),
         ];
 
         await serializer.save(locationSamples);
@@ -196,6 +196,10 @@ void main() async {
 
         double routineIndex = context.routineIndex;
         double homeStay = context.homeStay;
+
+        expect(context.stops.length, 2);
+        expect(context.places.length, 2);
+        expect(context.moves.length, 1);
 
         expect(homeStay, 6 / 9);
 
@@ -208,8 +212,146 @@ void main() async {
         }
       }
     });
+
+    test('Stops: Multiple days, multiple locations, with overlap', () async {
+
+      MobilitySerializer<LocationSample> serializer =
+          await ContextGenerator.locationSampleSerializer;
+
+      /// Clean file every time test is run
+      serializer.flush();
+
+      for (int i = 0; i < 5; i++) {
+        DateTime date = jan01.add(Duration(days: i));
+
+        /// Todays data
+        List<LocationSample> locationSamples = [
+          // 5 hours spent at home
+          LocationSample(pos1, date.add(Duration(hours: 0, minutes: 0))),
+          LocationSample(pos1, date.add(Duration(hours: 6, minutes: 0))),
+
+          LocationSample(pos2, date.add(Duration(hours: 8, minutes: 0))),
+          LocationSample(pos2, date.add(Duration(hours: 9, minutes: 0))),
+
+          LocationSample(pos1, date.add(Duration(hours: 21, minutes: 0))),
+          LocationSample(
+              pos1, date.add(Duration(hours: 23, minutes: 59, seconds: 59))),
+        ];
+
+        await serializer.save(locationSamples);
+
+        /// Calculate and save context
+        MobilityContext context = await ContextGenerator.generate(
+            usePriorContexts: true, today: date);
+
+        /// Verify that stops are not shared among days
+        /// This should not be the case since samples from
+        /// previous days are filtered out.
+        expect(context.stops.length, 3);
+        expect(context.places.length, 2);
+        expect(context.moves.length, 2);
+      }
+    });
   });
-  ///////
+
+//  test('Simulate everything', () async {
+//    List<MobilityContext> contexts = [];
+//    MobilitySerializer<LocationSample> dataSerializer =
+//        await ContextGenerator.locationSampleSerializer;
+//
+//    /// Reset file content
+//    dataSerializer.flush();
+//
+//    /// Init data
+//    List<SingleLocationPoint> data = await Dataset().loadDataset(datasetPath);
+//    List<SingleLocationPoint> buffer = [];
+//    int bufferSize = 100;
+//
+//    /// Simulate going through the dates
+//    for (DateTime today in dates) {
+//      List dataOnDate =
+//          data.where((d) => d.datetime.midnight == today.midnight).toList();
+//
+//      /// Simulate data points coming in one at a time
+//      for (SingleLocationPoint x in dataOnDate) {
+//        buffer.add(x);
+//
+//        /// Fill up buffer. When full: write data to file.
+//        if (buffer.length >= bufferSize) {
+//          await dataSerializer.save(buffer);
+//          buffer = [];
+//        }
+//      }
+//
+//      /// Pre-process today's data
+//      DataPreprocessor preprocessor = DataPreprocessor(today);
+//
+//      /// Time passes, and we now need the data
+//      List<SingleLocationPoint> loadedData = await dataSerializer.load();
+//
+//      /// Filter out data points NOT from today which may be stored in the file,
+//      /// from a previous day
+//      List<SingleLocationPoint> loadedDataFromToday =
+//          preprocessor.pointsToday(loadedData);
+//
+//      /// Remember to add the remaining buffer to the loaded data as well.
+//      List<SingleLocationPoint> pointsAll = loadedDataFromToday + buffer;
+//
+//      /// Find new stops and moves
+//      List<Stop> stopsToday = preprocessor.findStops(pointsAll);
+//      List<Move> movesToday = preprocessor.findMoves(pointsAll, stopsToday);
+//
+//      /// Load old stops and moves
+//      List<Stop> stopsLoaded = await stopSerializer.load();
+//      List<Move> movesLoaded = await moveSerializer.load();
+//
+//      /// Set a breakpoint for which older stops/moves will be disregarded
+//      /// and thrown away
+//      DateTime fourWeeksAgo = today.subtract(Duration(days: 28));
+//
+//      /// Filter out stops and moves which were computed today,
+//      /// which were just loaded as well as stops older than 28 days
+//      List<Stop> stopsOld = stopsLoaded
+//          .where((s) =>
+//              s.arrival.midnight != today.midnight &&
+//              fourWeeksAgo.leq(s.arrival.midnight))
+//          .toList();
+//
+//      List<Move> movesOld = movesLoaded
+//          .where((m) =>
+//              m.stopFrom.arrival.midnight != today.midnight &&
+//              fourWeeksAgo.leq(m.stopFrom.arrival.midnight))
+//          .toList();
+//
+//      /// Concatenate old and and new
+//      List<Stop> stopsAll = stopsOld + stopsToday;
+//      List<Move> movesAll = movesOld + movesToday;
+//
+//      /// Find all places, both historic and today
+//      List<Place> placesAll = preprocessor.findPlaces(stopsAll);
+//
+//      /// Save today's stops and moves.
+//      /// Naive approach, is to just append - but this
+//      /// assumes this processing is done 23:59:59
+//      /// and that it hasn't been done previously on this day.
+//      /// By flushing the file and writing ALL stops and moves,
+//      /// the issue is avoided, albeit by using more compute power.
+//      stopSerializer.flush();
+//      moveSerializer.flush();
+//      stopSerializer.save(stopsAll);
+//      moveSerializer.save(movesAll);
+//
+//      /// Calculate features
+//      MobilityContext mc = MobilityContext(stopsAll, placesAll, movesAll,
+//          contexts: contexts, date: today);
+//      contexts.add(mc);
+//
+//      print("Routine index daily: ${mc.routineIndex}");
+//      print(mc.hourMatrix);
+//      print('-' * 40);
+//    }
+//  });
+///////
 
 //  test('Serialization of stops and moves', () async {
 //    /// Create a [SingleLocationPoint] manually
@@ -481,109 +623,7 @@ void main() async {
 //    print("Ran test without errors!");
 //  });
 //
-//  test('Simulate everything', () async {
-//    List<MobilityContext> contexts = [];
-//    Serializer<SingleLocationPoint> dataSerializer =
-//        Serializer(new File('$testDataDir/munich_points.json'));
-//    Serializer<Stop> stopSerializer =
-//        Serializer(new File('$testDataDir/munich_stops.json'));
-//    Serializer<Move> moveSerializer =
-//        Serializer(new File('$testDataDir/munich_moves.json'));
-//
-//    /// Reset file content
-//    dataSerializer.flush();
-//    stopSerializer.flush();
-//    moveSerializer.flush();
-//
-//    /// Init data
-//    List<SingleLocationPoint> data = await Dataset().loadDataset(datasetPath);
-//    List<SingleLocationPoint> buffer = [];
-//    int bufferSize = 100;
-//
-//    /// Simulate going through the dates
-//    for (DateTime today in dates) {
-//      List dataOnDate =
-//          data.where((d) => d.datetime.midnight == today.midnight).toList();
-//
-//      /// Simulate data points coming in one at a time
-//      for (SingleLocationPoint x in dataOnDate) {
-//        buffer.add(x);
-//
-//        /// Fill up buffer. When full: write data to file.
-//        if (buffer.length >= bufferSize) {
-//          await dataSerializer.save(buffer);
-//          buffer = [];
-//        }
-//      }
-//
-//      /// Pre-process today's data
-//      DataPreprocessor preprocessor = DataPreprocessor(today);
-//
-//      /// Time passes, and we now need the data
-//      List<SingleLocationPoint> loadedData = await dataSerializer.load();
-//
-//      /// Filter out data points NOT from today which may be stored in the file,
-//      /// from a previous day
-//      List<SingleLocationPoint> loadedDataFromToday =
-//          preprocessor.pointsToday(loadedData);
-//
-//      /// Remember to add the remaining buffer to the loaded data as well.
-//      List<SingleLocationPoint> pointsAll = loadedDataFromToday + buffer;
-//
-//      /// Find new stops and moves
-//      List<Stop> stopsToday = preprocessor.findStops(pointsAll);
-//      List<Move> movesToday = preprocessor.findMoves(pointsAll, stopsToday);
-//
-//      /// Load old stops and moves
-//      List<Stop> stopsLoaded = await stopSerializer.load();
-//      List<Move> movesLoaded = await moveSerializer.load();
-//
-//      /// Set a breakpoint for which older stops/moves will be disregarded
-//      /// and thrown away
-//      DateTime fourWeeksAgo = today.subtract(Duration(days: 28));
-//
-//      /// Filter out stops and moves which were computed today,
-//      /// which were just loaded as well as stops older than 28 days
-//      List<Stop> stopsOld = stopsLoaded
-//          .where((s) =>
-//              s.arrival.midnight != today.midnight &&
-//              fourWeeksAgo.leq(s.arrival.midnight))
-//          .toList();
-//
-//      List<Move> movesOld = movesLoaded
-//          .where((m) =>
-//              m.stopFrom.arrival.midnight != today.midnight &&
-//              fourWeeksAgo.leq(m.stopFrom.arrival.midnight))
-//          .toList();
-//
-//      /// Concatenate old and and new
-//      List<Stop> stopsAll = stopsOld + stopsToday;
-//      List<Move> movesAll = movesOld + movesToday;
-//
-//      /// Find all places, both historic and today
-//      List<Place> placesAll = preprocessor.findPlaces(stopsAll);
-//
-//      /// Save today's stops and moves.
-//      /// Naive approach, is to just append - but this
-//      /// assumes this processing is done 23:59:59
-//      /// and that it hasn't been done previously on this day.
-//      /// By flushing the file and writing ALL stops and moves,
-//      /// the issue is avoided, albeit by using more compute power.
-//      stopSerializer.flush();
-//      moveSerializer.flush();
-//      stopSerializer.save(stopsAll);
-//      moveSerializer.save(movesAll);
-//
-//      /// Calculate features
-//      MobilityContext mc = MobilityContext(stopsAll, placesAll, movesAll,
-//          contexts: contexts, date: today);
-//      contexts.add(mc);
-//
-//      print("Routine index daily: ${mc.routineIndex}");
-//      print(mc.hourMatrix);
-//      print('-' * 40);
-//    }
-//  });
+
 //
 //  test('Test a single date from Bornholm', () async {
 //    List<MobilityContext> contexts = [];

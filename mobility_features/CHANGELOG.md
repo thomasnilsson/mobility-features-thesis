@@ -1,3 +1,6 @@
+## [1.1.5] - Major refactoring
+* Renamed and refactored classes such as Location and SingleLocationPoint to GeoPosition and LocationSample respectively.
+
 ## [1.1.0] - Private classes
 * Made a series of classes private such that they cannot be instantiated from outside the package
 

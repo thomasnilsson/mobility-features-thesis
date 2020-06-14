@@ -1,4 +1,4 @@
-part of mobility_features_lib;
+part of mobility_features;
 
 class MobilitySerializer<E> {
   /// Provide a file reference in order to serialize objects.

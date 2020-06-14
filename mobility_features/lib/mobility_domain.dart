@@ -1,4 +1,4 @@
-part of mobility_features_lib;
+part of mobility_features;
 
 const int HOURS_IN_A_DAY = 24;
 
@@ -62,7 +62,7 @@ class GeoPosition implements _Serializable, _Geospatial {
 
   @override
   String toString() {
-    return 'Location: ($_latitude, $_longitude)';
+    return '($_latitude, $_longitude)';
   }
 }
 
@@ -93,7 +93,7 @@ class LocationSample implements _Serializable, _Geospatial {
 
   @override
   String toString() {
-    return '$_geoPosition [$_datetime]';
+    return '$_geoPosition @ $_datetime';
   }
 }
 
@@ -281,16 +281,14 @@ class _HourMatrix {
   List<List<double>> _matrix;
   int _numberOfPlaces;
 
-  _HourMatrix(this._matrix) {
-    _numberOfPlaces = _matrix.first.length;
-  }
+  _HourMatrix(this._matrix, this._numberOfPlaces);
 
-  factory _HourMatrix.fromStops(List<Stop> stops, int numberOfPlaces) {
+  factory _HourMatrix.fromStops(List<Stop> stops, int numPlaces) {
     /// Init 2d matrix with 24 rows and cols equal to number of places
     List<List<double>> matrix = new List.generate(
-        HOURS_IN_A_DAY, (_) => new List<double>.filled(numberOfPlaces, 0.0));
+        HOURS_IN_A_DAY, (_) => new List<double>.filled(numPlaces, 0.0));
 
-    for (int j = 0; j < numberOfPlaces; j++) {
+    for (int j = 0; j < numPlaces; j++) {
       List<Stop> stopsAtPlace = stops.where((s) => (s.placeId) == j).toList();
 
       for (Stop s in stopsAtPlace) {
@@ -300,7 +298,7 @@ class _HourMatrix {
         }
       }
     }
-    return _HourMatrix(matrix);
+    return _HourMatrix(matrix, numPlaces);
   }
 
   factory _HourMatrix.average(List<_HourMatrix> matrices) {
@@ -315,7 +313,7 @@ class _HourMatrix {
         }
       }
     }
-    return _HourMatrix(avg);
+    return _HourMatrix(avg, nPlaces);
   }
 
   List<List<double>> get matrix => _matrix;

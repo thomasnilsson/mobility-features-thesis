@@ -1,4 +1,4 @@
-part of mobility_features_lib;
+part of mobility_features;
 
 /// Daily mobility context.
 /// All Stops and Moves should be on the same date.
@@ -125,14 +125,15 @@ class MobilityContext {
         latestTime.midnight.millisecondsSinceEpoch;
 
     // Find todays home id, if no home exists today return -1.0
-    _HourMatrix hm = _HourMatrix.fromStops(_stops, numberOfPlaces);
+    _HourMatrix hm = this.hourMatrix;
     if (hm.homePlaceId == -1) {
       return -1.0;
     }
 
-    Place homePlace = places.where((p) => p.id == hm.homePlaceId).first;
-
-    int homeTime = homePlace.durationForDate(date).inMilliseconds;
+    int homeTime = stops
+        .where((s) => s.placeId == hm.homePlaceId)
+        .map((s) => s.duration.inMilliseconds)
+        .fold(0, (a, b) => a + b);
 
     return homeTime.toDouble() / totalTime.toDouble();
   }
@@ -191,7 +192,7 @@ class MobilityContext {
     // We require at least 2 days to compute the routine index
     if (contexts == null) {
       return -1.0;
-    } else if (contexts.length <= 1) {
+    } else if (contexts.isEmpty) {
       return -1.0;
     }
 
@@ -259,8 +260,6 @@ class ContextGenerator {
 
     /// Load data from disk
     List<LocationSample> samplesToday = await sampleSerializer.load();
-    List<Stop> stopsAll = await stopSerializer.load();
-    List<Move> movesAll = await moveSerializer.load();
 
     // Define today as the midnight time
     today = today ?? DateTime.now();
@@ -270,14 +269,17 @@ class ContextGenerator {
     samplesToday = _filterSamples(samplesToday, today);
 
     // Filter out todays stops, and stops older than 28 days
-    stopsAll = _stopsHistoric(stopsAll, today);
-    movesAll = _movesHistoric(movesAll, today);
+    List<Stop> stopsHist = await stopSerializer.load();
+    List<Move> movesHist = await moveSerializer.load();
+    stopsHist = _stopsHistoric(stopsHist, today);
+    movesHist = _movesHistoric(movesHist, today);
 
     /// Recompute stops and moves today and add them
     List<Stop> stopsToday = _findStops(samplesToday, today);
     List<Move> movesToday = _findMoves(samplesToday, stopsToday);
-    stopsAll.addAll(stopsToday);
-    movesAll.addAll(movesToday);
+
+    List<Stop> stopsAll = stopsHist + stopsToday;
+    List<Move> movesAll = movesHist + movesToday;
 
     /// Save Stops and Moves to disk
     stopSerializer.flush();
@@ -293,10 +295,10 @@ class ContextGenerator {
 
     /// If Prior is chosen, compute mobility contexts for each previous date.
     if (usePriorContexts) {
-      Set<DateTime> dates = stopsAll.map((s) => s.arrival.midnight).toSet();
+      Set<DateTime> dates = stopsHist.map((s) => s.arrival.midnight).toSet();
       for (DateTime date in dates) {
-        List<Stop> stopsOnDate = _stopsForDate(stopsAll, date);
-        List<Move> movesOnDate = _movesForDate(movesAll, date);
+        List<Stop> stopsOnDate = _stopsForDate(stopsHist, date);
+        List<Move> movesOnDate = _movesForDate(movesHist, date);
         MobilityContext mc =
             MobilityContext._(stopsOnDate, placesAll, movesOnDate, date: date);
         priorContexts.add(mc);
