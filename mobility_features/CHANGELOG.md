@@ -1,3 +1,6 @@
+## [1.2.0] - Restructuring
+* MobilitySerializer is now private.
+
 ## [1.1.5] - Major refactoring
 * Renamed and refactored classes such as Location and SingleLocationPoint to GeoPosition and LocationSample respectively.
 

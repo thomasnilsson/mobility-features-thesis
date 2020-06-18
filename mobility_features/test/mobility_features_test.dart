@@ -7,14 +7,29 @@ import 'package:flutter_test/flutter_test.dart';
 
 part 'test_utils.dart';
 
+const String LOCATION_SAMPLES = 'location_samples',
+    STOPS = 'stops',
+    MOVES = 'moves';
+
+const String datasetPath = 'lib/data/example-multi.json';
+const String testDataDir = 'test/data';
+
 Duration takeTime(DateTime start, DateTime end) {
   int ms = end.millisecondsSinceEpoch - start.millisecondsSinceEpoch;
   return Duration(milliseconds: ms);
 }
 
+Future<void> flushFiles() async {
+  File samples = new File('$testDataDir/$LOCATION_SAMPLES.json');
+  File stops = new File('$testDataDir/$STOPS.json');
+  File moves = new File('$testDataDir/$MOVES.json');
+
+  await samples.writeAsStringSync('');
+  await stops.writeAsStringSync('');
+  await moves.writeAsStringSync('');
+}
 void main() async {
-  String datasetPath = 'lib/data/example-multi.json';
-  String testDataDir = 'test/data';
+
 
   List<DateTime> dates = [
     DateTime(2020, 02, 12),
@@ -52,26 +67,24 @@ void main() async {
 
   group("Mobility Context Tests", () {
     test('Serialize and load three location samples', () async {
-      MobilitySerializer<LocationSample> serializer =
-          await ContextGenerator.locationSampleSerializer;
 
       LocationSample x =
           LocationSample(GeoPosition(123.456, 123.456), DateTime(2020, 01, 01));
 
       List<LocationSample> dataset = [x, x, x];
 
-      await serializer.flush();
-      await serializer.save(dataset);
-      List loaded = await serializer.load();
+      await flushFiles();
+
+      await ContextGenerator.saveSamples(dataset);
+
+      List<LocationSample> loaded = await ContextGenerator.loadSamples();
       expect(loaded.length, dataset.length);
     });
 
     test('Serialize and load and multiple days', () async {
-      MobilitySerializer<LocationSample> serializer =
-          await ContextGenerator.locationSampleSerializer;
 
       /// Clean file every time test is run
-      await serializer.flush();
+      await flushFiles();
       List<LocationSample> dataset = [];
 
       for (int i = 0; i < 5; i++) {
@@ -88,11 +101,11 @@ void main() async {
         ];
 
         /// Save
-        await serializer.save(locationSamples);
+        await ContextGenerator.saveSamples(locationSamples);
         dataset.addAll(locationSamples);
 
         /// Load, make sure data from previous days is not stored.
-        List<LocationSample> loaded = await serializer.load();
+        List<LocationSample> loaded = await ContextGenerator.loadSamples();
         expect(loaded.length, dataset.length);
       }
     });
@@ -106,11 +119,9 @@ void main() async {
         LocationSample(pos1, jan01.add(timeTracked)),
       ];
 
-      MobilitySerializer<LocationSample> serializer =
-          await ContextGenerator.locationSampleSerializer;
 
-      serializer.flush();
-      await serializer.save(dataset);
+      await flushFiles();
+      await ContextGenerator.saveSamples(dataset);
 
       MobilityContext context = await ContextGenerator.generate(today: jan01);
       expect(context.homeStay, 1.0);
@@ -120,11 +131,8 @@ void main() async {
     });
 
     test('Features: Single day, multiple locations', () async {
-      MobilitySerializer<LocationSample> serializer =
-          await ContextGenerator.locationSampleSerializer;
-
       /// Clean file every time test is run
-      serializer.flush();
+      await flushFiles();
 
       List<LocationSample> locationSamples = [
         // 5 hours spent at home
@@ -149,7 +157,7 @@ void main() async {
         LocationSample(pos1, jan01.add(Duration(hours: 21, minutes: 0))),
       ];
 
-      await serializer.save(locationSamples);
+      await ContextGenerator.saveSamples(locationSamples);
 
       /// Calculate and save context
       MobilityContext context =
@@ -169,11 +177,9 @@ void main() async {
     });
 
     test('Features: Multiple days, multiple locations', () async {
-      MobilitySerializer<LocationSample> serializer =
-          await ContextGenerator.locationSampleSerializer;
 
       /// Clean file every time test is run
-      serializer.flush();
+      await flushFiles();
 
       for (int i = 0; i < 5; i++) {
         DateTime date = jan01.add(Duration(days: i));
@@ -188,7 +194,7 @@ void main() async {
           LocationSample(pos2, date.add(Duration(hours: 9, minutes: 0))),
         ];
 
-        await serializer.save(locationSamples);
+        await ContextGenerator.saveSamples(locationSamples);
 
         /// Calculate and save context
         MobilityContext context = await ContextGenerator.generate(
@@ -215,11 +221,8 @@ void main() async {
 
     test('Stops: Multiple days, multiple locations, with overlap', () async {
 
-      MobilitySerializer<LocationSample> serializer =
-          await ContextGenerator.locationSampleSerializer;
-
       /// Clean file every time test is run
-      serializer.flush();
+      await flushFiles();
 
       for (int i = 0; i < 5; i++) {
         DateTime date = jan01.add(Duration(days: i));
@@ -238,7 +241,7 @@ void main() async {
               pos1, date.add(Duration(hours: 23, minutes: 59, seconds: 59))),
         ];
 
-        await serializer.save(locationSamples);
+        await ContextGenerator.saveSamples(locationSamples);
 
         /// Calculate and save context
         MobilityContext context = await ContextGenerator.generate(

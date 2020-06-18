@@ -51,7 +51,7 @@ class MobilityContext {
 
   /// Hour matrix for the day
   /// Uses the number of allPlaces since matrices have to match other days
-  _HourMatrix get hourMatrix {
+  _HourMatrix get _hm {
     if (_hourMatrix == null) {
       _hourMatrix = _HourMatrix.fromStops(_stops, _allPlaces.length);
     }
@@ -125,7 +125,7 @@ class MobilityContext {
         latestTime.midnight.millisecondsSinceEpoch;
 
     // Find todays home id, if no home exists today return -1.0
-    _HourMatrix hm = this.hourMatrix;
+    _HourMatrix hm = this._hm;
     if (hm.homePlaceId == -1) {
       return -1.0;
     }
@@ -199,14 +199,14 @@ class MobilityContext {
     /// Compute the HourMatrix for each context that is older
     List<_HourMatrix> matrices = contexts
         .where((c) => c.date.isBefore(this.date))
-        .map((c) => c.hourMatrix)
+        .map((c) => c._hm)
         .toList();
 
     /// Compute the 'average day' from the matrices
     _HourMatrix avgMatrix = _HourMatrix.average(matrices);
 
     /// Compute the overlap between the 'average day' and today
-    return this.hourMatrix.computeOverlap(avgMatrix);
+    return this._hm.computeOverlap(avgMatrix);
   }
 
   List<Place> get allPlaces => _allPlaces;
@@ -244,19 +244,29 @@ class ContextGenerator {
     return new File('$path/$type.json');
   }
 
-  static Future<MobilitySerializer<LocationSample>>
-      get locationSampleSerializer async =>
-          MobilitySerializer<LocationSample>._(await _file(LOCATION_SAMPLES));
+  static Future<_MobilitySerializer<LocationSample>>
+  get _locationSampleSerializer async =>
+      _MobilitySerializer<LocationSample>._(await _file(LOCATION_SAMPLES));
+
+
+  static Future<void> saveSamples(List<LocationSample> samples) async {
+    (await _locationSampleSerializer).save(samples);
+  }
+
+  static Future<List<LocationSample>> loadSamples() async {
+    List<LocationSample> samples = await (await _locationSampleSerializer).load();
+    return samples;
+  }
 
   static Future<MobilityContext> generate(
       {bool usePriorContexts: false, DateTime today}) async {
     /// Init serializers
-    MobilitySerializer<LocationSample> sampleSerializer =
-        await locationSampleSerializer;
-    MobilitySerializer<Stop> stopSerializer =
-        MobilitySerializer<Stop>._(await _file(STOPS));
-    MobilitySerializer<Move> moveSerializer =
-        MobilitySerializer<Move>._(await _file(MOVES));
+    _MobilitySerializer<LocationSample> sampleSerializer =
+        await _locationSampleSerializer;
+    _MobilitySerializer<Stop> stopSerializer =
+        _MobilitySerializer<Stop>._(await _file(STOPS));
+    _MobilitySerializer<Move> moveSerializer =
+        _MobilitySerializer<Move>._(await _file(MOVES));
 
     /// Load data from disk
     List<LocationSample> samplesToday = await sampleSerializer.load();
@@ -281,14 +291,14 @@ class ContextGenerator {
     List<Stop> stopsAll = stopsHist + stopsToday;
     List<Move> movesAll = movesHist + movesToday;
 
+    /// Find places for the period
+    List<Place> placesAll = _findPlaces(stopsAll);
+
     /// Save Stops and Moves to disk
     stopSerializer.flush();
     moveSerializer.flush();
     stopSerializer.save(stopsAll);
     moveSerializer.save(movesAll);
-
-    /// Find places for the period
-    List<Place> placesAll = _findPlaces(stopsAll);
 
     /// Find prior contexts, if prior is not chosen just leave empty
     List<MobilityContext> priorContexts = [];

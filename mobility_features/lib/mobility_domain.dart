@@ -279,9 +279,12 @@ class Move implements _Serializable {
 
 class _HourMatrix {
   List<List<double>> _matrix;
-  int _numberOfPlaces;
+  int _hours = HOURS_IN_A_DAY, _numberOfPlaces;
 
-  _HourMatrix(this._matrix, this._numberOfPlaces);
+
+  _HourMatrix(this._matrix) {
+    _numberOfPlaces = _matrix.first.length;
+  }
 
   factory _HourMatrix.fromStops(List<Stop> stops, int numPlaces) {
     /// Init 2d matrix with 24 rows and cols equal to number of places
@@ -298,7 +301,7 @@ class _HourMatrix {
         }
       }
     }
-    return _HourMatrix(matrix, numPlaces);
+    return _HourMatrix(matrix);
   }
 
   factory _HourMatrix.average(List<_HourMatrix> matrices) {
@@ -313,7 +316,7 @@ class _HourMatrix {
         }
       }
     }
-    return _HourMatrix(avg, nPlaces);
+    return _HourMatrix(avg);
   }
 
   List<List<double>> get matrix => _matrix;
@@ -347,25 +350,6 @@ class _HourMatrix {
   }
 
   /// Calculates the error between two matrices
-  double computeError(_HourMatrix other) {
-    /// Check that dimensions match
-    assert(other.matrix.length == HOURS_IN_A_DAY &&
-        other.matrix.first.length == _matrix.first.length);
-
-    /// Cumulative error between the two matrices
-    double error = 0.0;
-    //
-    for (int i = 0; i < HOURS_IN_A_DAY; i++) {
-      for (int j = 0; j < _numberOfPlaces; j++) {
-        error += (this.matrix[i][j] - other.matrix[i][j]).abs();
-      }
-    }
-
-    /// Compute average error by dividing by the number of total entries
-    return error / (HOURS_IN_A_DAY * _numberOfPlaces);
-  }
-
-  /// Calculates the error between two matrices
   double computeOverlap(_HourMatrix other) {
     /// Check that dimensions match
     assert(other.matrix.length == HOURS_IN_A_DAY &&
@@ -383,7 +367,7 @@ class _HourMatrix {
         /// If overlap in time-place matrix,
         /// add the overlap to the total overlap.
         /// The overlap is equal to the minimum of the two quantities
-        if (this.matrix[i][j] > 0.0 && other.matrix[i][j] > 0.0) {
+        if (this.matrix[i][j] >= 0.0 && other.matrix[i][j] >= 0.0) {
           overlap += min(this.matrix[i][j], other.matrix[i][j]);
         }
       }

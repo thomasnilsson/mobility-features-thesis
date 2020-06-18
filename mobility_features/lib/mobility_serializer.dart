@@ -1,11 +1,11 @@
 part of mobility_features;
 
-class MobilitySerializer<E> {
+class _MobilitySerializer<E> {
   /// Provide a file reference in order to serialize objects.
   File file;
   String delimiter = '\n';
 
-  MobilitySerializer._(this.file) {
+  _MobilitySerializer._(this.file) {
     bool exists = file.existsSync();
     if (!exists) {
       flush();

@@ -19,35 +19,51 @@ by the location plugin to a `LocationSample`.
 Below is shown an example where `Position` objects are coming in from the `GeoLocator` plugin and are being handled in the `_onData()` call-back method.
 
 ```dart
-_onData(Position d) async {
-    LocationSample(Location(d.latitude, d.longitude), d.timestamp);
+List<LocationSample> locationSamples = [];
+...
+
+void _onData(Position d) async {
+    GeoPosition geoPos = GeoPosition(d.latitude, d.longitude);
+    LocationSample sample = LocationSample(geoPos, d.timestamp);
+    locationSamples.add(sample);
 }
 ```
 
 ### Step 2: Save location data
-The location data must be saved on the device such that it can be used in the future. Saving the data to persistent storage prevents it from being lost should the RAM reset.
+The location data must be saved on the device such that it can be used in the future. 
 
-Start by instantiating the serializer:
+Saving the data to persistent storage also prevents it from being lost should the app be shut down.
 
-```dart
-MobilitySerializer<LocationSample> serializer =
-      await ContextGenerator.locationSampleSerializer;
-```      
-
-Next, given that the location samples have been collected in a list `List<LocationSample> locationSamples` the data is serialized like so:
+Given that the location samples have been collected in a list `List<LocationSample> locationSamples` the data is serialized like so:
 
 ```dart
-await serializer.save(locationSamples);
+await ContextGenerator.saveSamples(locationSamples);
 ```
 
 Ideally, saving the data is done with a certain interval, such as every time 100 `LocationSamples` are collected. 
 
 ### Step 3: Compute features
-The Features can be computed using the static class `ContextGenerator` which uses the stored gps location data to compute the features.
+The features can be computed using the `ContextGenerator` which uses stored data to compute the features.
 
 There most basic computation is done as follows:
+
 ```dart
 MobilityContext context = await ContextGenerator.generate();
+```
+
+All features are implemented as getters for the `MobilityContext` object.
+
+```dart
+context.places;
+context.stops;
+context.moves;
+
+context.numberOfPlaces;
+context.homeStay;
+context.entropy;
+context.normalizedEntropy;
+context.distanceTravelled;
+context.routineIndex;
 ```
 
 Note: it is not possible to instantiate a `MobilityContext` object directly. 
@@ -72,22 +88,6 @@ a specific date, then it is possible to do so using the `today` parameter.
 ```dart
 DateTime myDate = DateTime(01, 01, 2020);
 MobilityContext context = await ContextGenerator.generate(today: myDate);
-```
-
-### Step 4: Get features
-All features are implemented as getters for the `MobilityContext` object.
-
-```dart
-context.places;
-context.stops;
-context.moves;
-
-context.numberOfPlaces;
-context.homeStay;
-context.entropy;
-context.normalizedEntropy;
-context.distanceTravelled;
-context.routineIndex;
 ```
 
 ### Feature-specific instructions
