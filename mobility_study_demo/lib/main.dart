@@ -4,7 +4,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 
 import 'package:path_provider/path_provider.dart';
-import 'package:mobility_features/mobility_features_lib.dart';
+import 'package:mobility_features/mobility_features.dart';
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';

@@ -77,7 +77,7 @@ Concretely, you will have to track for at least 2 days, to compute this feature.
 The computation using prior contexts is done as follows
 
 ```dart
-MobilityContext context = await ContextGenerator.generate(usePriorContexts: true);
+ 
 ```
 
 #### Step 3.2: Compute features for a specific date

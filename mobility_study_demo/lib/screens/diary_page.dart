@@ -221,9 +221,9 @@ class _DiaryPageState extends State<DiaryPage> {
       _state = SubmitState.UPLOADING;
     });
 
-    await FileUtil().saveAnswers(_answers);
+    await FileManager().saveAnswers(_answers);
     print('Uploading answers to firebase...');
-    await FileUtil().uploadAnswers(widget.uuid);
+    await FileManager().uploadAnswers(widget.uuid);
     print('Done');
     setState(() {
       _state = SubmitState.SUBMITTED;
