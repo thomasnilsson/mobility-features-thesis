@@ -1,4 +1,4 @@
-part of mobility_features_test_lib;
+part of mobility_test;
 
 void printList(List l) {
   for (int i = 0; i < l.length; i++) {

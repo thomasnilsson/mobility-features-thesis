@@ -2,26 +2,21 @@ part of app;
 
 class AppProcessor {
   static const int BUFFER_SIZE = 100;
-  FileUtil util = FileUtil();
+  FileManager util = FileManager();
   Geolocator _geoLocator = Geolocator();
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging();
 
   String uuid;
-  Serializer<SingleLocationPoint> _pointSerializer;
-  Serializer<Stop> _stopSerializer;
-  Serializer<Move> _moveSerializer;
-  List<SingleLocationPoint> _pointsBuffer = [];
+  MobilitySerializer<LocationSample> _sampleSerializer;
+  List<LocationSample> _buffer = [];
 
-  int pointsCollectedToday = 0;
   bool streamingLocation = false;
   StreamSubscription<Position> _subscription;
   int numberOfBuffers = 0;
 
   Future initialize() async {
     await _loadUUID();
-    await _initSerializers();
     await _initLocation();
-//    await _initNotificationService();
   }
 
   Future restart() async {
@@ -43,16 +38,6 @@ class AppProcessor {
     return message;
   }
 
-  Future _initSerializers() async {
-    File pointsFile = await FileUtil().pointsFile;
-    File stopsFile = await FileUtil().stopsFile;
-    File movesFile = await FileUtil().movesFile;
-
-    _pointSerializer = Serializer<SingleLocationPoint>(pointsFile, debug: true);
-    _stopSerializer = Serializer<Stop>(stopsFile, debug: true);
-    _moveSerializer = Serializer<Move>(movesFile, debug: true);
-  }
-
   Future _initLocation() async {
     /// Set a minimum dist of such that we dont track every little move
     /// This is necessary if user is very stationary however, being in bed wont count!
@@ -68,40 +53,24 @@ class AppProcessor {
   }
 
   Future<void> _loadUUID() async {
-    uuid = await FileUtil().loadUUID();
-  }
-
-  /// Loads local data points and filters older points out if needed
-  Future<List<SingleLocationPoint>> _loadLocalPoints() async {
-    DateTime today = DateTime.now().midnight;
-    print('Loading local data points...');
-    List<SingleLocationPoint> points = await _pointSerializer.load();
-    if (points.isEmpty) {
-      return points;
-    } else if (points.first.datetime.midnight.isBefore(today)) {
-      print('Old location data found, deleting it...');
-      points = points.where((p) => p.datetime.midnight == today).toList();
-      await _pointSerializer.flush();
-      await _pointSerializer.save(points);
-    }
-    return points;
+    uuid = await FileManager().loadUUID();
   }
 
   void _onData(Position d) async {
-    SingleLocationPoint p =
-        SingleLocationPoint(Location(d.latitude, d.longitude), d.timestamp);
-    _pointsBuffer.add(p);
+    LocationSample sample =
+        LocationSample(GeoPosition(d.latitude, d.longitude), d.timestamp);
+    _buffer.add(sample);
 
-    print('New location point: $p');
+    print('New location point: $sample');
 
     /// If buffer has reached max capacity, write to file and empty the buffer
     /// This is to avoid constantly reading and writing from file each time a new
     /// point comes in.
-    if (_pointsBuffer.length >= BUFFER_SIZE) {
+    if (_buffer.length >= BUFFER_SIZE) {
       /// Save buffer locally, empty it, and then upload the points file to firebase
-      await _pointSerializer.save(_pointsBuffer);
-      _pointsBuffer = [];
-      String urlPoints = await FileUtil().uploadPoints(uuid);
+      await _sampleSerializer.save(_buffer);
+      _buffer = [];
+      String urlPoints = await FileManager().uploadSamples(uuid);
       print(urlPoints);
 
       /// If enough data has been collected, evaluate features
@@ -117,123 +86,55 @@ class AppProcessor {
 
   Future<void> saveAndUpload() async {
     /// Calculate features, then store stops, move and features
-    Features features = await _computeFeaturesAsync();
+    MobilityContext mobilityContext = await _computeFeaturesAsync();
 
-    await _saveOnDevice(features);
+    await _saveOnDevice(mobilityContext);
 
-    String urlFeatures = await FileUtil().uploadFeatures(uuid);
+    String urlFeatures = await FileManager().uploadFeatures(uuid);
     print(urlFeatures);
 
-    String urlPoints = await FileUtil().uploadPoints(uuid);
-    print(urlPoints);
+    String urlSamples = await FileManager().uploadSamples(uuid);
+    print(urlSamples);
 
-    String urlStops = await FileUtil().uploadStops(uuid);
+    String urlStops = await FileManager().uploadStops(uuid);
     print(urlStops);
 
-    String urlMoves = await FileUtil().uploadMoves(uuid);
+    String urlMoves = await FileManager().uploadMoves(uuid);
     print(urlMoves);
 
     print('Saved features');
   }
 
-  Future<void> _saveOnDevice(Features features) async {
-    await FileUtil().saveFeatures(features);
+  Future<void> _saveOnDevice(MobilityContext mc) async {
 
-    /// Clean up files
-    await _stopSerializer.flush();
-    await _moveSerializer.flush();
+    await FileManager().saveFeatures(mc);
 
-    /// Write updates values
-    await _stopSerializer.save(features.stops);
-    await _moveSerializer.save(features.moves);
   }
 
-  Future<Features> _computeFeaturesAsync() async {
-    /// Load points, stops and moves via package
-    print('Reading points');
-    List<SingleLocationPoint> points = await _loadLocalPoints();
-    pointsCollectedToday = points.length;
-
-    print('Reading stops');
-    List<Stop> stops = await _stopSerializer.load();
-
-    print('Reading moves');
-    List<Move> moves = await _moveSerializer.load();
-
+  Future<MobilityContext> _computeFeaturesAsync() async {
     ReceivePort receivePort = ReceivePort();
     await Isolate.spawn(_asyncComputation, receivePort.sendPort);
     SendPort sendPort = await receivePort.first;
 
-    Features features = await _relay(sendPort, points, stops, moves);
-    return features;
+    MobilityContext mobilityContext = await _relay(sendPort);
+    return mobilityContext;
   }
 
-  Future _relay(SendPort sp, List<SingleLocationPoint> points, List<Stop> stops,
-      List<Move> moves) {
-
+  Future _relay(SendPort sendPort) {
     ReceivePort receivePort = ReceivePort();
-    sp.send([points, stops, moves, receivePort.sendPort]);
+    sendPort.send([receivePort.sendPort]);
     return receivePort.first;
   }
 
   static void _asyncComputation(SendPort sendPort) async {
-    print('Check...!');
     ReceivePort receivePort = ReceivePort();
     sendPort.send(receivePort.sendPort);
     List args = await receivePort.first;
+    SendPort replyPort = args[0];
 
-    List<SingleLocationPoint> points = args[0];
-    List<Stop> stops = args[1];
-    List<Move> moves = args[2];
-    SendPort replyPort = args[3];
+    MobilityContext context =
+        await ContextGenerator.generate(usePriorContexts: true);
 
-    DateTime today = DateTime.now().midnight;
-    DataPreprocessor preprocessor = DataPreprocessor(today);
-    DateTime fourWeeksAgo = today.subtract(Duration(days: 28));
-    print('Filering out old stops/moves...');
-
-    /// Filter out stops and moves which were computed today,
-    /// which were just loaded as well as stops older than 28 days
-    List<Stop> stopsOld = stops.isEmpty
-        ? stops
-        : stops
-            .where((s) =>
-                s.arrival.midnight != today.midnight &&
-                fourWeeksAgo.leq(s.arrival.midnight))
-            .toList();
-
-    List<Move> movesOld = moves.isEmpty
-        ? moves
-        : moves
-            .where((m) =>
-                m.stopFrom.arrival.midnight != today.midnight &&
-                fourWeeksAgo.leq(m.stopFrom.arrival.midnight))
-            .toList();
-
-    print('Calculating new stops and moves...');
-    List<Stop> stopsToday = preprocessor.findStops(points, filter: false);
-    List<Move> movesToday = preprocessor.findMoves(points, stopsToday, filter: false);
-
-    /// Concatenate old and new
-    List<Stop> stopsAll = stopsOld + stopsToday;
-    List<Move> movesAll = movesOld + movesToday;
-
-    print('Calculating new places...');
-    List<Place> placesAll = preprocessor.findPlaces(stopsAll);
-
-    print('No. stops: ${stopsAll.length}');
-    for (final x in stopsAll) print(x);
-    print('No. moves: ${movesAll.length}');
-    for (final x in movesAll) print(x);
-    print('No. places: ${placesAll.length}');
-    for (final x in placesAll) print(x);
-
-    /// Extract features
-    Features features = Features(today, stopsAll, placesAll, movesAll);
-
-    /// TODO: Can probably remove this
-    features.printOverview();
-    print(features.hourMatrixDaily);
-    replyPort.send(features);
+    replyPort.send(context);
   }
 }

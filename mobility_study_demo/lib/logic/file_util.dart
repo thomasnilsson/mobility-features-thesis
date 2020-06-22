@@ -4,13 +4,13 @@ String formatDate(DateTime date) => new DateFormat("MMMM dd yyyy").format(date);
 
 enum AppState { NO_FEATURES, CALCULATING_FEATURES, FEATURES_READY }
 
-class FileUtil {
+class FileManager {
   Future<File> _file(String type) async {
     String path = (await getApplicationDocumentsDirectory()).path;
     return new File('$path/$type.json');
   }
 
-  Future<File> get pointsFile async => await _file('locations');
+  Future<File> get samplesFile async => await _file('locations');
 
   Future<File> get stopsFile async => await _file('stops');
 
@@ -20,9 +20,9 @@ class FileUtil {
 
   Future<File> get featuresFile async => await _file('features');
 
-  Future<void> saveFeatures(Features features) async {
+  Future<void> saveFeatures(MobilityContext mc) async {
     File file = await featuresFile;
-    String jsonString = json.encode(features.toJson()) + '\n';
+    String jsonString = json.encode(mc.toJson()) + '\n';
     await file.writeAsString(jsonString, mode: FileMode.writeOnlyAppend);
   }
 
@@ -56,9 +56,9 @@ class FileUtil {
     return await _upload(await stopsFile, uuid, 'stops');
   }
 
-  Future<String> uploadPoints(String uuid) async {
+  Future<String> uploadSamples(String uuid) async {
     /// Save to firebase. Date is added to the points file name in firebase
-    File pointsFile = await FileUtil().pointsFile;
+    File pointsFile = await FileManager().samplesFile;
     String dateString =
         '${DateTime.now().year}-${DateTime.now().month}-${DateTime.now().day}';
     String urlPoints = await _upload(pointsFile, uuid, 'points-$dateString');
@@ -100,16 +100,6 @@ class FileUtil {
         .map((e) => Map<String, dynamic>.from(e));
 
     return maps;
-  }
-
-  Future<List<Stop>> loadStopsFromAssets() async {
-    final maps = await _loadFromAssets('data/all_stops.json');
-    return maps.map((x) => Stop.fromJson(x)).toList();
-  }
-
-  Future<List<Move>> loadMovesFromAssets() async {
-    final maps = await _loadFromAssets('data/all_moves.json');
-    return maps.map((x) => Move.fromJson(x)).toList();
   }
 
   void printList(List l) {
