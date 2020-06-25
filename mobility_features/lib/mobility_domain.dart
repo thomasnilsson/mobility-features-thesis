@@ -279,7 +279,7 @@ class Move implements _Serializable {
 
 class _HourMatrix {
   List<List<double>> _matrix;
-  int _hours = HOURS_IN_A_DAY, _numberOfPlaces;
+  int _numberOfPlaces;
 
 
   _HourMatrix(this._matrix) {
@@ -304,7 +304,7 @@ class _HourMatrix {
     return _HourMatrix(matrix);
   }
 
-  factory _HourMatrix.average(List<_HourMatrix> matrices) {
+  factory _HourMatrix.routineMatrix(List<_HourMatrix> matrices) {
     int nDays = matrices.length;
     int nPlaces = matrices.first.matrix.first.length;
     List<List<double>> avg = zeroMatrix(HOURS_IN_A_DAY, nPlaces);

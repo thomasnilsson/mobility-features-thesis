@@ -203,10 +203,10 @@ class MobilityContext {
         .toList();
 
     /// Compute the 'average day' from the matrices
-    _HourMatrix avgMatrix = _HourMatrix.average(matrices);
+    _HourMatrix routine = _HourMatrix.routineMatrix(matrices);
 
     /// Compute the overlap between the 'average day' and today
-    return this._hm.computeOverlap(avgMatrix);
+    return this._hm.computeOverlap(routine);
   }
 
   List<Place> get allPlaces => _allPlaces;
